@@ -1,5 +1,26 @@
-
 # *Epeios* changelog
+
+2018-01-10:
+- XDHUTL:
+  - fixing *Clang* warning,
+
+2018-01-09:
+- *common*:
+  - **$**: getting rid of faulty `type &var = *(type *)NULL` parameter definitions,
+- BTR:
+  - adding some default parameter to ease the modification in *IDXBTR* (see below),
+- CSDMXS:
+  - fixing missing `override` to overriding virtual function,
+- CSDMXC:
+  - fixing *clang* warning,
+- IDXBTR:
+  - **$**,
+- IDXBTQ:
+  - **$**,
+- TOL:
+  - adding a feature to ease the temporary disabling of the `system` function message warning.
+- V8Q:
+  - fixing issue with the `v8.h` use of the `system` command (see above),
 
 2018-01-05:
 - V8Q:

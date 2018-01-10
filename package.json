@@ -1,6 +1,6 @@
 {
   "name": "xdhq",
-  "version": "2018.1.5",
+  "version": "2018.1.9",
   "author": "Claude SIMON (http://q37.info/contact/)",
   "description": "'XDHTML' wrapper.",
   "main": "XDHq.js",
@@ -10,12 +10,12 @@
   "binary": {
     "module_name": "xdhqnjs",
     "module_path": "./",
-    "remote_path": "./epeios-q37/xdhq-node/releases/download/v20180105/",
-    "package_name": "{module_name}-v20180105-{platform}-{arch}.tar.gz",
+    "remote_path": "./epeios-q37/xdhq-node/releases/download/v20180109/",
+    "package_name": "{module_name}-v20180109-{platform}-{arch}.tar.gz",
     "host": "https://github.com"
   },
   "dependencies": {
-   "njsq": "2018.1.5"
+   "njsq": "2018.1.9"
   },
   "devDependencies": {
 
