@@ -20,8 +20,8 @@
 #include "xdhp.h"
 
 #include "registry.h"
+#include "proxy.h"
 #include "treep.h"
-#include "xdh_cmn.h"
 
 #include "csdbns.h"
 #include "csdcmn.h"
@@ -119,13 +119,104 @@ namespace {
 namespace {
 	qCDEF( char *, Id_, "_q37XDHRack" );
 
+	namespace {
+		typedef proxy::rData rPData_;
+	}
+
+	qENUM( Status_ ) {
+		sNew,		// New connexion.
+		sAction,	// Action to be handled.
+		sPending,	// A response of an action has to be handled.
+		s_amount,
+		s_Undefined
+	};
+
+	class rData_
+	: public rPData_
+	{
+	public:
+		sclnjs::rCallback Callback;
+		sclnjs::rObject XDH;	// User overloaded 'XDH' JS class.
+		eStatus_ Status;
+		void reset( bso::sBool P = true )
+		{
+			rPData_::reset( P );
+			tol::reset( P, Callback, XDH );
+			Status = s_Undefined;
+		}
+		qCVDTOR( rData_ );
+		void Init( void )
+		{
+			rPData_::Init();
+
+			tol::Init( Callback, XDH );
+			Status = s_Undefined;
+		}
+	};
+
+	sclnjs::rCallback ConnectCallback_;
+
+	proxy::rSharing<rData_> Sharing_;
+
+	namespace {
+		typedef proxy::rProcessing<rData_> rPProcessing_;
+
+		class rProcessing_
+		: public rPProcessing_
+		{
+		protected:
+			rData_ *PRXYNew( void ) override
+			{
+				rData_ *Data = new rData_;
+
+				if ( Data == NULL )
+					qRAlc();
+
+				Data->Init();
+				Data->Status = sNew;
+
+				Sharing_.Write( Data );
+
+				return Data;
+			}
+			void PRXYOnAction( rData_ *Data ) override
+			{
+				Data->Status = sAction;
+				::Sharing_.Write( Data );
+			}
+			void PRXYOnPending( rData_ *Data ) override
+			{
+				Data->Status = sPending;
+				Sharing_.Write( Data );
+			}
+		};
+	}
+
 	class rXDHRack_
 	: public sclnjs::cAsync
 	{
 	private:
-		xdh_cmn::rProcessing Processing_;
+		rProcessing_ Processing_;
 		csdmns::rServer Server_;
-		qRMV( xdh_cmn::rData, D_, Data_ );
+		qRMV( rData_, D_, Data_ );
+		void SetCallbackArguments_(
+			const proxy::rReturn &Return,
+			sclnjs::dArguments &Arguments )
+		{
+			switch ( Return.GetType() ) {
+			case prxy_recv::tString:
+				Arguments.Add( Return.GetString() );
+				break;
+			case prxy_recv::tStrings:
+				Arguments.Add( Return.GetStrings() );
+				break;
+			case prxy_recv::t_Undefined:
+				break;
+			default:
+				qRGnr();
+				break;
+			}
+		}
 	protected:
 		virtual void UVQWork( void ) override
 		{
@@ -138,23 +229,16 @@ namespace {
 			return sclnjs::bRelaunch;
 		}
 	public:
-		xdh_cmn::rSharing Sharing;
-		sclnjs::rCallback ConnectCallback;
 		void reset( bso::sBool P = true )
 		{
-			tol::reset( P, Sharing, Processing_, Server_, ConnectCallback );
+			tol::reset( P, Processing_, Server_ );
 			Data_ = NULL;
 		}
 		qCDTOR( rXDHRack_ );
-		void Init(
-			csdbns::sService Service,
-			sclnjs::rCallback &ConnectCallback )
+		void Init( csdbns::sService Service )
 		{
-			Sharing.Init();
-			Processing_.Init( Sharing );
+			Processing_.Init();
 			Server_.Init( Service, Processing_ );
-			this->ConnectCallback.Init();
-			this->ConnectCallback = ConnectCallback;
 			mtk::Launch( LaunchServer_, &Server_ );
 			Data_ = NULL;
 		}
@@ -163,33 +247,51 @@ namespace {
 			if ( Data_ != NULL )
 				qRGnr();
 
-			Data_ = &Sharing.ReadJS();
+			Data_ = (rData_ *)Sharing_.Read();
 		}
 		void HandleData( void )
 		{
 		qRH;
 			sclnjs::rCallback Callback;
+			sclnjs::wArguments Arguments;
 		qRB;
-			xdh_cmn::rData &Data = D_();
+			rData_ &Data = D_();
 			Callback.Init();
-			Callback = Data.JS.Callback;
-			Data.JS.Callback.reset( false );
+			Callback = Data.Callback;
+			Data.Callback.reset( false );
 
-			if ( Callback.HasAssignation() ) {	// There is a pending callback.
-				Callback.VoidLaunch( Data.JS.Arguments.Core() );
-				Callback.reset( false );
-			} else if ( Data.JS.Action.Amount() != 0 ) {	// No pending callback, but an action has to be handled launched.
-				Callback.Init();
-				Callback.Assign( Get_( Data.JS.Action ) );
-				Callback.VoidLaunch( Data.XDH, Data.JS.Id );
-				Callback.reset( false );
-				tol::Init( Data.JS.Id, Data.JS.Action );
-			} else {	// A new connection was open.
-				ConnectCallback.ObjectLaunch( Data.XDH, Data.JS.Arguments.Core() );
+			switch ( Data.Status ) {
+			case sNew:
+				Data.Recv.ReadBegin();
+				ConnectCallback_.ObjectLaunch( Data.XDH );
 				Data.XDH.Set( Id_, &Data );
+				Data.Recv.ReadEnd();
+				break;
+			case sAction:
+				Callback.Init();
+				Data.Recv.ReadBegin();
+				Callback.Assign( Get_( Data.Recv.Action ) );
+				Callback.VoidLaunch( Data.XDH, Data.Recv.Id );
+				Data.Recv.ReadEnd();
+				if ( !Data.IsTherePendingRequest() )
+					Data.Sent.WriteDismiss();
+				Callback.reset( false );
+				break;
+			case sPending:
+				Arguments.Init();
+				Data.Recv.ReadBegin();
+				SetCallbackArguments_( Data.Recv.Return, Arguments );
+				Data.Recv.ReadEnd();
+				Callback.VoidLaunch( Arguments );
+				if ( !Data.IsTherePendingRequest() )
+					Data.Sent.WriteDismiss();
+				Callback.reset( false );
+				break;
+			default:
+				qRGnr();
+				break;
 			}
 
-			Data.Unlock();
 			Data_ = NULL;
 		qRR;
 		qRT;
@@ -268,16 +370,13 @@ SCLNJS_F( xdhp::Listen )
 qRH;
 	csdcmn::sVersion Version = csdcmn::UndefinedVersion;
 	str::wString Arguments;
-	sclnjs::rCallback Callback;
 qRB;
-	tol::Init( Callback, Arguments );
-	Caller.GetArgument( Callback, Arguments );
+	tol::Init( Arguments );
+	Caller.GetArgument( ConnectCallback_, Arguments );
 
 	sclargmnt::FillRegistry( Arguments, sclargmnt::faIsArgument, sclargmnt::uaReport );
 
-	Rack_.Init( sclmisc::MGetU16( registry::parameter::Service ), Callback );
-
-	Callback.reset( false );	// To avoid the destruction of contained items, as their are now managed by the rack.
+	Rack_.Init( sclmisc::MGetU16( registry::parameter::Service ) );
 
 #if 0
 	while ( true ) {
@@ -294,16 +393,16 @@ qRE;
 #endif
 
 namespace {
-	xdh_cmn::rData &GetData_( sclnjs::sCaller &Caller )
+	rData_ &GetData_( sclnjs::sCaller &Caller )
 	{
-		xdh_cmn::rData *Data = NULL;
+		rData_ *Data = NULL;
 	qRH;
 		sclnjs::rObject Object;
 	qRB;
 		Object.Init();
 		Caller.GetArgument( Object );
 
-		Data = (xdh_cmn::rData * )Object.Get( Id_ );
+		Data = (rData_ * )Object.Get( Id_ );
 
 		if ( Data == NULL )
 			qRGnr();
@@ -314,120 +413,175 @@ namespace {
 	}
 }
 
-#define DATA\
-	xdh_cmn::rData &Data = GetData_( Caller );\
-	xdh_ups::rServer &Server = Data.Server;\
-	xdh_dws::rJS &JS = Data.JS;\
-	xdh_ups::rArguments &Arguments = Server.Arguments;\
+#define ARGS_BEGIN\
+	rData_ &Data = GetData_( Caller );\
+	Data.Sent.WriteBegin();\
+	proxy::rArguments &Arguments = Data.Sent.Arguments;\
 	Arguments.Init();
+
+#define ARGS_END	Data.Sent.WriteEnd()
 
 SCLNJS_F( xdhp::Alert )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Message, JS.Callback );
+	Caller.GetArgument( Arguments.Message, Data.Callback );
 
-	Server.Request = xdh_ups::rAlert;
+	Data.Request = prxy_cmn::rAlert;
+
+	ARGS_END;
 }
 
 SCLNJS_F( xdhp::Confirm )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Message, JS.Callback );
+	Caller.GetArgument( Arguments.Message, Data.Callback );
 
-	Server.Request = xdh_ups::rConfirm;
+	Data.Request = prxy_cmn::rConfirm;
+
+	ARGS_END;
 }
-
-
 
 SCLNJS_F( xdhp::SetLayout )
 {
-	DATA;
+	ARGS_BEGIN;
 
 	Caller.GetArgument( Arguments.Id );
 
 	treep::GetXML( Caller, Arguments.XML );
 
-	Caller.GetArgument( Server.Arguments.XSLFilename, JS.Callback );
+	Caller.GetArgument( Arguments.XSLFilename, Data.Callback );
 	Arguments.Language = Data.Language;
-	Server.Request = xdh_ups::rSetLayout;
+	Data.Request = prxy_cmn::rSetLayout;
+
+	ARGS_END;
 }
 
 SCLNJS_F( xdhp::GetContents )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Ids, JS.Callback );
-	Server.Request = xdh_ups::rGetContents;
+	Caller.GetArgument( Arguments.Ids, Data.Callback );
+	Data.Request = prxy_cmn::rGetContents;
+
+	ARGS_END;
 }
 
 SCLNJS_F( xdhp::SetContents )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Ids, Arguments.Contents, JS.Callback );
-	Server.Request = xdh_ups::rSetContents;
+	Caller.GetArgument( Arguments.Ids, Arguments.Contents, Data.Callback );
+	Data.Request = prxy_cmn::rSetContents;
+
+	ARGS_END;
 }
 
 SCLNJS_F( xdhp::DressWidgets )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Id, JS.Callback );
-	Server.Request = xdh_ups::rDressWidgets;
+	Caller.GetArgument( Arguments.Id, Data.Callback );
+	Data.Request = prxy_cmn::rDressWidgets;
+
+	ARGS_END;
 }
 
-SCLNJS_F( xdhp::SetCastsByIds )
+SCLNJS_F( xdhp::AddClasses )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Ids, Arguments.Values, JS.Callback );
-	Server.Request = xdh_ups::rSetCastsByIds;
+	Caller.GetArgument( Arguments.Ids, Arguments.Classes, Data.Callback );
+	Data.Request = prxy_cmn::rAddClasses;
+
+	ARGS_END;
 }
 
-SCLNJS_F( xdhp::SetCastsByTags )
+SCLNJS_F( xdhp::RemoveClasses )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Id, Arguments.Tags, Arguments.Values, JS.Callback );
-	Server.Request = xdh_ups::rSetCastsByTags;
+	Caller.GetArgument( Arguments.Ids, Arguments.Classes, Data.Callback );
+	Data.Request = prxy_cmn::rRemoveClasses;
+
+	ARGS_END;
+}
+
+SCLNJS_F( xdhp::ToggleClasses )
+{
+	ARGS_BEGIN;
+
+	Caller.GetArgument( Arguments.Ids, Arguments.Classes, Data.Callback );
+	Data.Request = prxy_cmn::rToggleClasses;
+
+	ARGS_END;
+}
+
+SCLNJS_F( xdhp::EnableElements )
+{
+	ARGS_BEGIN;
+
+	Caller.GetArgument( Arguments.Ids, Data.Callback );
+	Data.Request = prxy_cmn::rEnableElements;
+
+	ARGS_END;
+}
+
+SCLNJS_F( xdhp::DisableElements )
+{
+	ARGS_BEGIN;
+
+	Caller.GetArgument( Arguments.Ids, Data.Callback );
+	Data.Request = prxy_cmn::rDisableElements;
+
+	ARGS_END;
 }
 
 SCLNJS_F( xdhp::GetAttribute )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Id, Arguments.Name, JS.Callback );
-	Server.Request = xdh_ups::rGetAttribute;
+	Caller.GetArgument( Arguments.Id, Arguments.Name, Data.Callback );
+	Data.Request = prxy_cmn::rGetAttribute;
+
+	ARGS_END;
 }
 
 SCLNJS_F( xdhp::SetAttribute )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Id, Arguments.Name, Arguments.Value, JS.Callback );
-	Server.Request = xdh_ups::rSetAttribute;
+	Caller.GetArgument( Arguments.Id, Arguments.Name, Arguments.Value, Data.Callback );
+	Data.Request = prxy_cmn::rSetAttribute;
+
+	ARGS_END;
 }
 
 SCLNJS_F( xdhp::GetProperty )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Id, Arguments.Name, JS.Callback );
-	Server.Request = xdh_ups::rGetProperty;
+	Caller.GetArgument( Arguments.Id, Arguments.Name, Data.Callback );
+	Data.Request = prxy_cmn::rGetProperty;
+
+	ARGS_END;
 }
 
 SCLNJS_F( xdhp::SetProperty )
 {
-	DATA;
+	ARGS_BEGIN;
 
-	Caller.GetArgument( Arguments.Id, Arguments.Name, Arguments.Value, JS.Callback );
-	Server.Request = xdh_ups::rSetProperty;
+	Caller.GetArgument( Arguments.Id, Arguments.Name, Arguments.Value, Data.Callback );
+	Data.Request = prxy_cmn::rSetProperty;
+
+	ARGS_END;
 }
 
 qGCTOR( xdhp )
 {
 	Automat_.Init();
 	Callbacks_.Init();
+	ConnectCallback_.Init();
+	Sharing_.Init();
 }

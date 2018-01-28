@@ -17,32 +17,7 @@
     along with XDHq.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// XDH Primitives.
+#include "tree.h"
 
-#ifndef XDHP_INC_
-# define XDHP_INC_
+using namespace tree;
 
-# include"sclnjs.h"
-
-namespace xdhp {
-	SCLNJS_F( Register );
-	SCLNJS_F( Listen );
-	SCLNJS_F( Dismiss );
-	SCLNJS_F( Alert );
-	SCLNJS_F( Confirm );
-	SCLNJS_F( SetLayout );
-	SCLNJS_F( GetContents );
-	SCLNJS_F( SetContents );
-	SCLNJS_F( DressWidgets );
-	SCLNJS_F( AddClasses );
-	SCLNJS_F( RemoveClasses );
-	SCLNJS_F( ToggleClasses );
-	SCLNJS_F( EnableElements );
-	SCLNJS_F( DisableElements );
-	SCLNJS_F( GetAttribute );
-	SCLNJS_F( SetAttribute );
-	SCLNJS_F( GetProperty );
-	SCLNJS_F( SetProperty );
-}
-
-#endif

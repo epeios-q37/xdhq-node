@@ -17,23 +17,35 @@
     along with 'XDHq'.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef SERVER_INC_
-# define SERVER_INC_
+#ifndef PRXY_CMN_INC_
+# define PRXY_CMN_INC_
 
 # include "prtcl.h"
 
-# include "flw.h"
 # include "str.h"
 
-namespace server {
-	void Handshake(
-		flw::sRFlow &Flow,
-		str::dString &Language );
+namespace prxy_cmn {
 
-	void GetAction(
-		flw::sRWFlow &Flow,
-		str::dString &Id,
-		str::dString &Action );
+	qENUM( Request )
+	{
+		rAlert,
+		rConfirm,
+		rSetLayout,
+		rGetContents,
+		rSetContents,
+		rDressWidgets,
+		rAddClasses,
+		rRemoveClasses,
+		rToggleClasses,
+		rEnableElements,
+		rDisableElements,
+		rGetAttribute,
+		rSetAttribute,
+		rGetProperty,
+		rSetProperty,
+		r_amount,
+		r_Undefined
+	};
 
 	// '...S' Send the request.
 	// '...R' get the response.
@@ -48,10 +60,10 @@ namespace server {
 	}
 
 	inline void Alert(
-		const str::dString &Script,
+		const str::dString &Message,
 		flw::sRWFlow &Flow )
 	{
-		alert::S( Script, Flow );
+		alert::S( Message, Flow );
 		alert::R( Flow );
 	}
 
@@ -66,14 +78,14 @@ namespace server {
 	}
 
 	inline void Confirm(
-		const str::dString &Script,
+		const str::dString &Message,
 		flw::sRWFlow &Flow,
 		str::dString &Response )
 	{
-		confirm::S( Script, Flow );
+		confirm::S( Message, Flow );
 		confirm::R( Flow, Response );
 	}
-	
+
 	namespace layout {
 		namespace set {
 			void S(
@@ -158,48 +170,98 @@ namespace server {
 		}
 	}
 
-	namespace casts_by_ids {
-		namespace set 
-		{ 
+	namespace classes {
+		namespace add {
 			void S(
 				const str::dStrings &Ids,
-				const str::dStrings &Values,
+				const str::dStrings &Classes,
 				flw::sWFlow &Flow );
 
 			inline void R( flw::sRFlow &Flow )
 			{}
 		}
-		
-		inline void Set(
+
+		inline void Add(
 			const str::dStrings &Ids,
-			const str::dStrings &Values,
+			const str::dStrings &Classes,
 			flw::sRWFlow &Flow )
 		{
-			set::S( Ids, Values, Flow );
-			set::R( Flow );
+			add::S( Ids, Classes, Flow );
+			add::R( Flow );
+		}
+
+		namespace remove {
+			void S(
+				const str::dStrings &Ids,
+				const str::dStrings &Classes,
+				flw::sWFlow &Flow );
+
+			inline void R( flw::sRFlow &Flow )
+			{}
+		}
+
+		inline void Remove(
+			const str::dStrings &Ids,
+			const str::dStrings &Classes,
+			flw::sRWFlow &Flow )
+		{
+			remove::S( Ids, Classes, Flow );
+			remove::R( Flow );
+		}
+
+		namespace toggle {
+			void S(
+				const str::dStrings &Ids,
+				const str::dStrings &Classes,
+				flw::sWFlow &Flow );
+
+			inline void R( flw::sRFlow &Flow )
+			{}
+		}
+
+		inline void Toggle(
+			const str::dStrings &Ids,
+			const str::dStrings &Classes,
+			flw::sRWFlow &Flow )
+		{
+			toggle::S( Ids, Classes, Flow );
+			toggle::R( Flow );
 		}
 	}
 
-	namespace casts_by_tags {
-		namespace set {
+	namespace elements {
+		namespace enable {
 			void S(
-				const str::dString &Id,
-				const str::dStrings &Tags,
-				const str::dStrings &Values,
+				const str::dStrings &Ids,
 				flw::sWFlow &Flow );
 
 			inline void R( flw::sRFlow &Flow )
 			{}
 		}
 
-		inline void Set(
-			const str::dString &Id,
-			const str::dStrings &Tags,
-			const str::dStrings &Values,
+		inline void Enable(
+			const str::dStrings &Ids,
 			flw::sRWFlow &Flow )
 		{
-			set::S( Id, Tags, Values, Flow );
-			set::R( Flow );
+			enable::S( Ids, Flow );
+			enable::R( Flow );
+		}
+
+		namespace disable {
+			void S(
+				const str::dStrings &Ids,
+				flw::sWFlow &Flow );
+
+			inline void R( flw::sRFlow &Flow )
+			{}
+		}
+
+		inline void Disable(
+			const str::dStrings &Id,
+			flw::sRWFlow &Flow )
+		{
+			disable::S( Id, Flow );
+			disable::R( Flow );
 		}
 	}
 
@@ -267,16 +329,16 @@ namespace server {
 			{
 				ap_::set::R( Flow );
 			}
+		}
 
-			inline void Set(
-				const str::dString &Id,
-				const str::dString &Name,
-				const str::dString &Value,
-				flw::sRWFlow &Flow )
-			{
-				set::S( Id, Name, Value, Flow );
-				set::R( Flow );
-			}
+		inline void Set(
+			const str::dString &Id,
+			const str::dString &Name,
+			const str::dString &Value,
+			flw::sRWFlow &Flow )
+		{
+			set::S( Id, Name, Value, Flow );
+			set::R( Flow );
 		}
 
 		namespace get {
@@ -294,16 +356,16 @@ namespace server {
 			{
 				ap_::get::R( Flow, Value );
 			}
+		}
 
-			inline void Set(
-				const str::dString &Id,
-				const str::dString &Name,
-				const str::dString &Value,
-				flw::sRWFlow &Flow )
-			{
-				set::S( Id, Name, Value, Flow );
-				set::R( Flow );
-			}
+		inline void Get(
+			const str::dString &Id,
+			const str::dString &Name,
+			flw::sRWFlow &Flow,
+			str::dString &Value )
+		{
+			get::S( Id, Name, Flow );
+			get::R( Flow, Value );
 		}
 	}
 
@@ -322,16 +384,16 @@ namespace server {
 			{
 				ap_::set::R( Flow );
 			}
+		}
 
-			inline void Set(
-				const str::dString &Id,
-				const str::dString &Name,
-				const str::dString &Value,
-				flw::sRWFlow &Flow )
-			{
-				set::S( Id, Name, Value, Flow );
-				set::R( Flow );
-			}
+		inline void Set(
+			const str::dString &Id,
+			const str::dString &Name,
+			const str::dString &Value,
+			flw::sRWFlow &Flow )
+		{
+			set::S( Id, Name, Value, Flow );
+			set::R( Flow );
 		}
 
 		namespace get {
@@ -349,16 +411,16 @@ namespace server {
 			{
 				ap_::get::R( Flow, Value );
 			}
+		}
 
-			inline void Set(
-				const str::dString &Id,
-				const str::dString &Name,
-				const str::dString &Value,
-				flw::sRWFlow &Flow )
-			{
-				set::S( Id, Name, Value, Flow );
-				set::R( Flow );
-			}
+		inline void Get(
+			const str::dString &Id,
+			const str::dString &Name,
+			flw::sRWFlow &Flow,
+			str::dString &Value )
+		{
+			get::S( Id, Name, Flow );
+			get::R( Flow, Value );
 		}
 	}
 }

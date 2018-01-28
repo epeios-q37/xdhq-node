@@ -17,39 +17,11 @@
     along with 'XDHq'.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "server.h"
-
-#include "prtcl.h"
+#include "prxy_cmn.h"
 
 #include "sclmisc.h"
 
-using namespace server;
-
-void server::Handshake(
-	flw::sRFlow &Flow,
-	str::dString & Language )
-{
-	csdcmn::sVersion Version = csdcmn::UndefinedVersion;
-
-	if ( ( Version = csdcmn::GetProtocolVersion( prtcl::ProtocolId, Flow ) ) != prtcl::ProtocolVersion )
-		qRGnr();
-
-	prtcl::Get( Flow, Language );
-	Flow.Dismiss();
-}
-
-void server::GetAction(
-	flw::sRWFlow &Flow,
-	str::dString &Id,
-	str::dString &Action )
-{
-	if ( prtcl::GetRequest( Flow ) != prtcl::rLaunch_1 )
-		qRGnr();
-
-	prtcl::Get( Flow, Id );
-	prtcl::Get( Flow, Action );
-	Flow.Dismiss();
-}
+using namespace prxy_cmn;
 
 namespace {
 	void SetWithXSLContentOrFilename_(
@@ -101,18 +73,18 @@ namespace {
 	}
 }
 
-void server::layout::set::S(
+void prxy_cmn::layout::set::S(
 	const str::dString &Id,
 	const str::dString &XML,
 	const str::dString &XSLFilename,
 	const str::dString &Language,
 	flw::sWFlow &Flow )
 {
-//	SetWithXSLContent_( prtcl::aSetLayout_1, Id, XML, XSLFilename, Language, Flow );
+	//	SetWithXSLContent_( prtcl::aSetLayout_1, Id, XML, XSLFilename, Language, Flow );
 	SetWithXSLFilename_( prtcl::aSetLayout_1, Id, XML, XSLFilename, Language, Flow );
 }
 
-void server::alert::S(
+void prxy_cmn::alert::S(
 	const str::dString &Message,
 	flw::sWFlow &Flow )
 {
@@ -121,7 +93,7 @@ void server::alert::S(
 	Flow.Commit();
 }
 
-void server::confirm::S(
+void prxy_cmn::confirm::S(
 	const str::dString &Message,
 	flw::sWFlow &Flow )
 {
@@ -130,7 +102,7 @@ void server::confirm::S(
 	Flow.Commit();
 }
 
-void server::confirm::R(
+void prxy_cmn::confirm::R(
 	flw::sRFlow &Flow,
 	str::dString &Response )
 {
@@ -138,7 +110,7 @@ void server::confirm::R(
 	Flow.Dismiss();
 }
 
-void server::contents::get::S(
+void prxy_cmn::contents::get::S(
 	const str::dStrings &Ids,
 	flw::sWFlow &Flow )
 {
@@ -147,7 +119,7 @@ void server::contents::get::S(
 	Flow.Commit();
 }
 
-void server::contents::get::R(
+void prxy_cmn::contents::get::R(
 	flw::sRFlow &Flow,
 	str::dStrings &Contents )
 {
@@ -155,7 +127,7 @@ void server::contents::get::R(
 	Flow.Dismiss();
 }
 
-void server::contents::set::S(
+void prxy_cmn::contents::set::S(
 	const str::dStrings & Ids,
 	const str::dStrings & Contents,
 	flw::sWFlow & Flow )
@@ -166,7 +138,7 @@ void server::contents::set::S(
 	Flow.Commit();
 }
 
-void server::widgets::dress::S(
+void prxy_cmn::widgets::dress::S(
 	const str::dString &Id,
 	flw::sWFlow &Flow )
 {
@@ -175,31 +147,72 @@ void server::widgets::dress::S(
 	Flow.Commit();
 }
 
-void server::casts_by_ids::set::S(
+namespace {
+	void HandleClasses_(
+		const str::dStrings &Ids,
+		const str::dStrings &Classes,
+		prtcl::eAnswer Answer,
+		flw::sWFlow & Flow )
+	{
+		prtcl::PutAnswer( Answer, Flow );
+		prtcl::Put( Ids, Flow );
+		prtcl::Put( Classes, Flow );
+		Flow.Commit();
+	}
+}
+
+void prxy_cmn::classes::add::S(
 	const str::dStrings &Ids,
-	const str::dStrings &Values,
+	const str::dStrings &Classes,
 	flw::sWFlow & Flow )
 {
-	prtcl::PutAnswer( prtcl::aSetCastsByIds_1, Flow );
-	prtcl::Put( Ids, Flow );
-	prtcl::Put( Values, Flow );
-	Flow.Commit();
+	HandleClasses_( Ids, Classes, prtcl::aAddClasses_1, Flow );
 }
 
-void server::casts_by_tags::set::S(
-	const str::dString &Id,
-	const str::dStrings &Tags,
-	const str::dStrings &Values,
+void prxy_cmn::classes::remove::S(
+	const str::dStrings &Ids,
+	const str::dStrings &Classes,
 	flw::sWFlow & Flow )
 {
-	prtcl::PutAnswer( prtcl::aSetCastsByTags_1, Flow );
-	prtcl::Put( Id, Flow );
-	prtcl::Put( Tags, Flow );
-	prtcl::Put( Values, Flow );
-	Flow.Commit();
+	HandleClasses_( Ids, Classes, prtcl::aRemoveClasses_1, Flow );
 }
 
-void server::ap_::set::S(
+void prxy_cmn::classes::toggle::S(
+	const str::dStrings &Ids,
+	const str::dStrings &Classes,
+	flw::sWFlow & Flow )
+{
+	HandleClasses_( Ids, Classes, prtcl::aToggleClasses_1, Flow );
+}
+
+namespace {
+	void HandleElements_(
+		const str::dStrings &Ids,
+		prtcl::eAnswer Answer,
+		flw::sWFlow & Flow )
+	{
+		prtcl::PutAnswer( Answer, Flow );
+		prtcl::Put( Ids, Flow );
+		Flow.Commit();
+	}
+}
+
+void prxy_cmn::elements::enable::S(
+	const str::dStrings &Ids,
+	flw::sWFlow & Flow )
+{
+	HandleElements_( Ids, prtcl::aEnableElements_1, Flow );
+}
+
+void prxy_cmn::elements::disable::S(
+	const str::dStrings &Ids,
+	flw::sWFlow & Flow )
+{
+	HandleElements_( Ids, prtcl::aDisableElements_1, Flow );
+}
+
+
+void prxy_cmn::ap_::set::S(
 	prtcl::eAnswer Answer,
 	const str::dString &Id,
 	const str::dString &Name,
@@ -213,7 +226,7 @@ void server::ap_::set::S(
 	Flow.Commit();
 }
 
-void server::ap_::get::S(
+void prxy_cmn::ap_::get::S(
 	prtcl::eAnswer Answer,
 	const str::dString &Id,
 	const str::dString &Name,
@@ -225,12 +238,11 @@ void server::ap_::get::S(
 	Flow.Commit();
 }
 
-void server::ap_::get::R(
+void prxy_cmn::ap_::get::R(
 	flw::sRFlow &Flow,
 	str::dString &Value )
 {
 	prtcl::Get( Flow, Value );
 	Flow.Dismiss();
 }
-
 

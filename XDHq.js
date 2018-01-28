@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2007-2017 Claude SIMON (http://q37.info/contact/).
+	Copyright (C) 2017 Claude SIMON (http://q37.info/contact/).
 
 	This file is part of XDHq.
 
@@ -36,12 +36,12 @@ if (process.env.EPEIOS_SRC) {
 	} else {
 		componentPath = '~/bin/';
 		epeiosPath = "~/hg/epeios/tools/";
-		xslPath = path.join( epeiosToolsPath, "xdhq/servers/" );
+		xslPath = path.join(epeiosToolsPath, "xdhq/servers/");
 	}
 	njsq = require(componentPath + 'njsq.node');
 } else {
-    njsq = require('njsq');
-    componentPath = __dirname;
+	njsq = require('njsq');
+	componentPath = __dirname;
 }
 
 componentFilename = path.join(componentPath, affix + "njs").replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/ /g, "\\ ");
@@ -50,134 +50,154 @@ module.exports = njsq;
 
 class Tree {
 	constructor() {
-		njsq._wrapper(xdhq, 1, this );
+		njsq._call(xdhq, 1, this);
 	}
 	pushTag(name) {
-		njsq._wrapper(xdhq, 3, this, name);
+		njsq._call(xdhq, 3, this, name);
 	}
 	popTag() {
-		njsq._wrapper(xdhq, 4, this);
+		njsq._call(xdhq, 4, this);
 	}
-	putValue( value ) {
-		njsq._wrapper(xdhq, 5, this, value.toString());
+	putValue(value) {
+		njsq._call(xdhq, 5, this, value.toString());
 	}
 	putAttribute(name, value) {
-		njsq._wrapper(xdhq, 6, this, name, value.toString());
+		njsq._call(xdhq, 6, this, name, value.toString());
 	}
 }
 
-function pushLabelAndItem(labelAndItem, itemType, labels, items) {
-	if ((labelAndItem instanceof Array) && (labelAndItem.length === 2) && (typeof labelAndItem[0] === "string") && (typeof labelAndItem[1] === itemType)) {
-		labels.push(labelAndItem[0]);
-		items.push(labelAndItem[1]);
-	} else
-		throw ("Error in parameters.");
-}
-
-// '[a,b],[c,d],[e,f]' => '[a,c,e],[b,d,f]'
-function pushLabelsAndItems(labelsAndItems, itemType, labels, items) {
-	var length = labelsAndItems.length;
-
-	while (length--) {
-		pushLabelAndItem(labelsAndItems[length], itemType, labels, items);
+// {'a': b, 'c': d, 'e': f} -> ['a','c','e'] [b,d,f]
+function split(keysAndValues, keys, values) {
+	for (var prop in keysAndValues) {
+		keys.push(prop);
+		values.push(keysAndValues[prop]);
 	}
 }
 
-function nop() {
+// ['a', 'b', 'c'] ['d', 'e', 'f'] -> { 'a': 'd', 'b': 'e', 'c': 'f' }
+function unsplit(keys, values) {
+	var i = 0;
+	var keysValues = {};
+
+	while (i < keys.length) {
+		keysValues[keys[i]] = values[i];
+		i++;
+	}
+
+	return keysValues;
 }
 
-function normalize(callback) {
-	if (typeof callback === "undefined")
-		return nop;
-	else
-		return callback;
+// 'key', value -> { 'key': value } 
+function merge(key, value) {
+	var keyValue = {};
+
+	keyValue[key] = value;
+
+	return keyValue;
 }
 
 class XDH {
 	alert(message, callback) {
-		njsq._wrapper(xdhq, 9, this, message, normalize(callback));
+		njsq._call(xdhq, 9, this, message, callback);
 	}
 	confirm(message, callback) {
-		njsq._wrapper(xdhq, 10, this, message, (result) => normalize(callback)( result == "true" ));
+		njsq._call(xdhq, 10, this, message, (result) => callback(result == "true"));
 	}
 	setLayout(id, tree, xslFilename, callback) {
-		njsq._wrapper(xdhq, 11, this, id, tree, xslFilename, normalize(callback));
+		njsq._call(xdhq, 11, this, id, tree, xslFilename, callback);
 	}
-	getContents(ids, callback )  {
-		njsq._wrapper(xdhq, 12, this, ids, normalize( callback) );
+	getContents(ids, callback) {
+		njsq._call(xdhq, 12, this, ids,
+			(contents) => callback(unsplit(ids, contents))
+		);
 	}
-	getContent(id, callback ) {
-		return this.getContents([id], (result) => { normalize(callback)(result[0]); } );
+	getContent(id, callback) {
+		return this.getContents([id], (result) => { callback(result[id]); });
 	}
 	setContents(idsAndContents, callback) {
-		var ids = new Array();
-		var contents = new Array();
+		var ids = [];
+		var contents = [];
 
-		pushLabelsAndItems(idsAndContents, "string", ids, contents);
+		split(idsAndContents, ids, contents);
 
-		njsq._wrapper(xdhq, 13, this, ids, contents, normalize(callback));
+		njsq._call(xdhq, 13, this, ids, contents, callback);
 	}
 	setContent(id, content, callback) {
-		return this.setContents([[id,content]], normalize(callback));
+		return this.setContents(merge(id, content), callback);
 	}
 	dressWidgets(id, callback) {
-		njsq._wrapper(xdhq, 14, this, id, normalize(callback));
+		njsq._call(xdhq, 14, this, id, callback);
 	}
-	setCastsByIds(idsAndValues, callback ) {
-		var ids = new Array();
-		var values = new Array();
+	handleClasses(idsAndClasses, fid, callback) {
+		var ids = [];
+		var classes = [];
 
-		pushLabelsAndItems(idsAndValues, "string", ids, values);
+		split(idsAndClasses, ids, classes);
 
-		njsq._wrapper(xdhq, 15, this, ids, values, normalize(callback));
+		njsq._call(xdhq, fid, this, ids, classes, callback);
 	}
-	setCastById(id, value, callback ) {
-		this.setCastsByIds([[id, value]], normalize(callback) );
+	addClasses(idsAndClasses, callback) {
+		this.handleClasses(idsAndClasses, 15, callback);
 	}
-	setCastsByTags(id, tagsAndValues, callback) {
-		var tags = new Array();
-		var values = new Array();
-
-		pushLabelsAndItems(tagsAndValues, "string", tags, values);
-
-		njsq._wrapper(xdhq, 16, this, id, tags, values, normalize(callback));
+	addClass(id, clas, callback) {
+		this.addClasses(merge(id, clas), callback);
 	}
-	setCastByTag(id, tag, value, callback) {
-		this.setCastsByTags(id, [[tag, value]], normalize(callback));
+	removeClasses(idsAndClasses, callback) {
+		this.handleClasses(idsAndClasses, 16, callback);
+	}
+	removeClass(id, clas, callback) {
+		this.removeClasses(merge(id, clas), callback);
+	}
+	toggleClasses(idsAndClasses, callback) {
+		this.handleClasses(idsAndClasses, 17, callback);
+	}
+	toggleClass(id, clas, callback) {
+		this.toggleClasses(merge(id, clas), callback);
+	}
+	enableElements(ids, callback) {
+		njsq._call(xdhq, 18, this, ids, callback);
+	}
+	enableElement(id, callback) {
+		this.enableElements([id], callback);
+	}
+	disableElements(ids, callback) {
+		njsq._call(xdhq, 19, this, ids, callback);
+	}
+	disableElement(id, callback) {
+		this.disableElements([id], callback);
 	}
 	getAttribute(id, name, callback) {
-		return njsq._wrapper(xdhq, 17, this, id, name, normalize(callback));
+		return njsq._call(xdhq, 20, this, id, name, callback);
 	}
-	setAttribute(id, name, value, callback ) {
-		njsq._wrapper(xdhq, 18, this, id, name, value, normalize(callback));
+	setAttribute(id, name, value, callback) {
+		njsq._call(xdhq, 21, this, id, name, value, callback);
 	}
 	getProperty(id, name) {
-		return njsq._wrapper(xdhq, 19, this, id, name);
+		return njsq._call(xdhq, 22, this, id, name);
 	}
 	setProperty(id, name, value) {
-		njsq._wrapper(xdhq, 20, this, id, name, value);
+		njsq._call(xdhq, 23, this, id, name, value);
 	}
 }
 
 function register(idsAndItems) {
-	var tags = new Array();
-	var callbacks = new Array();
+	var tags = [];
+	var callbacks = [];
 
-	pushLabelsAndItems(idsAndItems, "function", tags, callbacks);
+	split(idsAndItems, tags, callbacks);
 
-	njsq._wrapper(xdhq, 7, tags, callbacks);
+	njsq._call(xdhq, 7, tags, callbacks);
 }
 
-function launch( callback ) {
-	njsq._wrapper(xdhq, 8, callback, "53752" );
+function launch(callback) {
+	njsq._call(xdhq, 8, callback, "53752");
 }
 
 module.exports.componentInfo = () => njsq._componentInfo(xdhq);
 module.exports.wrapperInfo = () => njsq._wrapperInfo();
-module.exports.returnArgument = (text) => { return njsq._wrapper(xdhq, 0, text) };
+module.exports.returnArgument = (text) => { return njsq._call(xdhq, 0, text) };
 
 module.exports.Tree = Tree;
 module.exports.register = register;
 module.exports.launch = launch;
 module.exports.XDH = XDH;
-
