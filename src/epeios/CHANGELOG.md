@@ -1,4 +1,39 @@
-# *Epeios* changelog
+# *Epeios* *CHANGELOG**
+
+2018-02-27:
+- SCLMISC:
+  - moving `ExitOnSignal()`from *SCLTOOL* to *SCLMISC*,
+- SCLTOOL:
+   - *idem*,
+
+2018-02-19:
+- XDHUTL
+  - fixing bug occurring when event label size too small,
+
+2018-02-18:
+- *common*:
+  - **$**: reverting path parameter handling,
+- SCLXDHTML:
+  - adaptation to modifications in underlying modules,
+- XDHDWS:
+  - **$**,
+- XDHUJP:
+  - **$**,
+- XDHUJS:
+  - **$**,
+
+2018-02-16:
+- *common*:
+  - **$**: a path parameter is now coming along with *XSL* parameter, for the desktop version be able to load the file,
+- SCLXDHTML:
+  - adaptation to modifications in underlying modules,
+- XDHDWS:
+  - **$**,
+- XDHUJP:
+  - **$**,
+- XDHUJS:
+  - **$**,
+  - commenting out some obsolete functions,
 
 2018-02-14:
 - CSDMXC
