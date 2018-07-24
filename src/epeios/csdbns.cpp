@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 1999-2017 Claude SIMON (http://q37.info/contact/).
+	Copyright (C) 1999 Claude SIMON (http://q37.info/contact/).
 
 	This file is part of the Epeios framework.
 
@@ -222,7 +222,7 @@ E_ROW( rrow__ );
 
 static lstbch::E_LBUNCHt( csdbns_repository_item__, rrow__ ) Repository_;
 
-mtx::handler___ Mutex_ = mtx::UndefinedHandler;
+mtx::handler___ Mutex_ = mtx::Undefined;
 
 inline static void Lock_( void )
 {

@@ -1,4 +1,4 @@
-# xdhq.travis
+# node.travis
 
 os:
 - linux
@@ -14,6 +14,24 @@ node_js:
 - "6"
 - "7"
 - "8"
+
+script:
+# Below commented commands are automatically done.
+#- npm install node-pre-gyp
+#- node-pre-gyp configure
+#- node-pre-gyp build
+# New
+- npm install
+- make
+- npm explore njsq -- node test.js
+- node test.js
+
+# OLD
+# - npm install njsq
+# - npm explore njsq -- node test.js
+# - node-pre-gyp configure
+# - node-pre-gyp build
+# - node test.js
 
 # To disable building on tags. Tags are supposed to begin with 'v' and only containing digits.
 branches:

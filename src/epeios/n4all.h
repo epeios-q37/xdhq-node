@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 1999-2017 Claude SIMON (http://q37.info/contact/).
+	Copyright (C) 1999 Claude SIMON (http://q37.info/contact/).
 
 	This file is part of the Epeios framework.
 
@@ -77,20 +77,24 @@ namespace n4all {
 		}
 	};
 
+	typedef void *sEnv;
+
 	// Destroyed by launching by 'delete', so must be created with 'new' !
 	class cLauncher {
 	protected:
 		virtual void N4ALLCall(
+			sEnv *Env,
 			void *Function,
 			cCaller &Caller ) = 0;
 		virtual void N4ALLInfo( str::dString &Info ) = 0;
 	public:
 		qCALLBACK( Launcher );
 		void Call(
+			sEnv *Env,
 			void *Function,
 			cCaller &Caller )
 		{
-			return N4ALLCall( Function, Caller );
+			return N4ALLCall( Env, Function, Caller );
 		}
 		void Info( str::dString &Info )
 		{

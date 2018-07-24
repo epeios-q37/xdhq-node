@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 1999-2017 Claude SIMON (http://q37.info/contact/).
+	Copyright (C) 1999 Claude SIMON (http://q37.info/contact/).
 
 	This file is part of the Epeios framework.
 
@@ -107,7 +107,7 @@ namespace n4njs {
 		}
 	};
 
-	typedef cUBase_<int> cUInt;
+	typedef cUBase_<int32_t> cInt32;
 	typedef cUBase_<str::dString> cUString;
 	typedef cUBase_<str::dStrings> cUStrings;
 

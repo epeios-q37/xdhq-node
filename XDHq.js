@@ -19,52 +19,56 @@
 
 "use strict"
 
-var affix = "xdhq";
+const fs = require('fs');
+const path = require('path');
+const shared = require('./XDHqSHRD.js');
 
-var njsq = null;
-var componentPath = null;
-var componentFilename = null;
-var path = require("path");
-var xslPath = "./";
-var epeiosToolsPath = "";
+const types = shared.types;
+const platforms = shared.platforms;
+const platform = shared.platform;
+const open = shared.open;
 
-if (process.env.EPEIOS_SRC) {
-	if (process.platform == 'win32') {
-		componentPath = 'h:/bin/';
-		epeiosToolsPath = "h:/hg/epeios/tools/";
-		xslPath = path.join(epeiosToolsPath, "xdhq/servers/");
-	} else {
-		componentPath = '~/bin/';
-		epeiosPath = "~/hg/epeios/tools/";
-		xslPath = path.join(epeiosToolsPath, "xdhq/servers/");
-	}
-	njsq = require(componentPath + 'njsq.node');
-} else {
-	njsq = require('njsq');
-	componentPath = __dirname;
+function isDev() {
+	if (process.env.EPEIOS_SRC)
+		return true;
+	else
+		return false;
 }
 
-componentFilename = path.join(componentPath, affix + "njs").replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/ /g, "\\ ");
-const xdhq = njsq._register(componentFilename);
-module.exports = njsq;
-
-class Tree {
-	constructor() {
-		njsq._call(xdhq, 1, this);
-	}
-	pushTag(name) {
-		njsq._call(xdhq, 3, this, name);
-	}
-	popTag() {
-		njsq._call(xdhq, 4, this);
-	}
-	putValue(value) {
-		njsq._call(xdhq, 5, this, value.toString());
-	}
-	putAttribute(name, value) {
-		njsq._call(xdhq, 6, this, name, value.toString());
-	}
+function getEpeiosPath() {
+	if (isDev) {
+		if (platform == platforms.WIN32) {
+			return "h:/hg/epeios/"
+		} else {
+			return "~/hg/epeios/"
+		}
+	} else
+		throw "Error !";
 }
+
+// Returns the directory which contains all the assets, based on the directory from where the app. were launched.
+function getAssetDir() {
+	var dir = path.dirname(process.argv[1]);
+
+	if (isDev()) {
+		let epeiosPath = getEpeiosPath();
+		return path.resolve(epeiosPath, "tools/xdhq/examples/common/", path.relative(path.resolve(epeiosPath, "tools/xdhq/examples/NJS/"), path.resolve(dir)));	// No final '/'.
+	} else
+		return path.resolve(dir);
+}
+
+function getAssetFileName(fileName) {
+	return path.join(getAssetDir(), path.win32.basename(fileName))
+}
+
+function readAsset(fileName) {
+	return Buffer.from(fs.readFileSync(getAssetFileName(fileName))).toString();
+}
+
+const modes = {
+	DEMO: 0,
+	PROD: 1,
+};
 
 // {'a': b, 'c': d, 'e': f} -> ['a','c','e'] [b,d,f]
 function split(keysAndValues, keys, values) {
@@ -96,21 +100,57 @@ function merge(key, value) {
 	return keyValue;
 }
 
+var xdhq;
+var call;
+
+function launch(callback, action, tagsAndCallbacks, mode, url) {
+	switch (mode) {
+		case modes.DEMO:
+			xdhq = require('./XDHqDEMO.js');
+			break;
+		case modes.PROD:
+			xdhq = require('./XDHqPROD.js');
+			break;
+		default:
+			throw "Unknown mode !!!";
+			break;
+	}
+
+	call = xdhq.call;
+	xdhq.launch(callback, action, tagsAndCallbacks, url);
+}
+
 class XDH {
 	execute(script, callback) {
-		njsq._call(xdhq, 9, this, script, callback);
+		call(this, "Execute_1", types.VOID, 1, script, 0, callback);
 	}
 	alert(message, callback) {
-		njsq._call(xdhq, 10, this, message, callback);
+		call(this, "Alert_1", types.VOID, 1, message, 0, callback);
 	}
 	confirm(message, callback) {
-		njsq._call(xdhq, 11, this, message, (result) => callback(result == "true"));
+		call(this, "Confirm_1", types.STRING, 1, message, 0, (answer) => callback(answer == "true"));
 	}
-	setLayout(id, tree, xslFilename, callback) {
-		njsq._call(xdhq, 12, this, id, tree, xslFilename, callback);
+	setLayout_(id, xml, xsl, callback) {
+		call(this, "SetLayout_1", types.VOID, 3, id, xml, xsl, 0, callback);
+	}
+	headUp(head, callback) {
+		this.setLayout_("_xdh_head", head, "", callback);
+	}
+	setLayout(id, html, callback) {
+		this.setLayout_(id, html, "", callback);
+	}
+	setLayoutXSL(id, tree, xslFileName, callback) {
+		let xslURL;
+
+		if (this._xdhIsDEMO)
+			xslURL = "data:text/xml;charset=utf-8," + encodeURIComponent(readAsset(xslFileName));
+		else
+			xslURL = xslFileName;
+
+		this.setLayout_(id, tree.end(), xslURL, callback);
 	}
 	getContents(ids, callback) {
-		njsq._call(xdhq, 13, this, ids,
+		call(this, "GetContents_1", types.STRINGS, 0, 1, ids,
 			(contents) => callback(unsplit(ids, contents))
 		);
 	}
@@ -123,93 +163,83 @@ class XDH {
 
 		split(idsAndContents, ids, contents);
 
-		njsq._call(xdhq, 14, this, ids, contents, callback);
+		call(this, "SetContents_1", types.VOID, 0, 2, ids, contents, callback);
 	}
 	setContent(id, content, callback) {
 		return this.setContents(merge(id, content), callback);
 	}
 	dressWidgets(id, callback) {
-		njsq._call(xdhq, 15, this, id, callback);
+		call(this, "DressWidgets_1", types.VOID, 1, id, 0, callback);
 	}
-	handleClasses(idsAndClasses, fid, callback) {
+	handleClasses(idsAndClasses, command, callback) {
 		var ids = [];
 		var classes = [];
 
 		split(idsAndClasses, ids, classes);
 
-		njsq._call(xdhq, fid, this, ids, classes, callback);
+		call(this, command, types.VOID, 0, 2, ids, classes, callback);
 	}
 	addClasses(idsAndClasses, callback) {
-		this.handleClasses(idsAndClasses, 16, callback);
+		this.handleClasses(idsAndClasses, "AddClasses_1", callback);
 	}
 	addClass(id, clas, callback) {
 		this.addClasses(merge(id, clas), callback);
 	}
 	removeClasses(idsAndClasses, callback) {
-		this.handleClasses(idsAndClasses, 17, callback);
+		this.handleClasses(idsAndClasses, "RemoveClasses_1", callback);
 	}
 	removeClass(id, clas, callback) {
 		this.removeClasses(merge(id, clas), callback);
 	}
 	toggleClasses(idsAndClasses, callback) {
-		this.handleClasses(idsAndClasses, 18, callback);
+		this.handleClasses(idsAndClasses, "ToggleClasses_1", callback);
 	}
 	toggleClass(id, clas, callback) {
 		this.toggleClasses(merge(id, clas), callback);
 	}
 	enableElements(ids, callback) {
-		njsq._call(xdhq, 19, this, ids, callback);
+		call(this, "EnableElements_1", types.VOID, 0, 1, ids, callback);
 	}
 	enableElement(id, callback) {
 		this.enableElements([id], callback);
 	}
 	disableElements(ids, callback) {
-		njsq._call(xdhq, 20, this, ids, callback);
+		call(this, "DisableElements_1", types.VOID, 0, 1, ids, callback);
 	}
 	disableElement(id, callback) {
 		this.disableElements([id], callback);
 	}
 	setAttribute(id, name, value, callback) {
-		njsq._call(xdhq, 21, this, id, name, value, callback);
+		call(this, "SetAttribute_1", types.VOID, 3, id, name, value, 0, callback);
 	}
 	getAttribute(id, name, callback) {
-		return njsq._call(xdhq, 22, this, id, name, callback);
+		return call(this, "GetAttribute_1", types.STRING, 2, id, name, 0, callback);
 	}
 	removeAttribute(id, name, callback) {
-		return njsq._call(xdhq, 23, this, id, name, callback);
-	}
-	setAttribute(id, name, value, callback) {
-		njsq._call(xdhq, 22, this, id, name, value, callback);
+		call(this, "RemoveAttribute_1", types.VOID, 2, id, name, 0, callback);
 	}
 	setProperty(id, name, value, callback) {
-		njsq._call(xdhq, 24, this, id, name, value, callback);
+		call(this, "SetProperty_1", types.VOID, 3, id, name, value, 0, callback);
 	}
 	getProperty(id, name, callback) {
-		return njsq._call(xdhq, 25, this, id, name, callback);
+		return call(this, "GetProperty_1", types.STRING, 2, id, name, 0, callback);
 	}
 	focus(id, callback) {
-		return njsq._call(xdhq, 26, this, id, callback);
+		call(this, "Focus_1", types.VOID, 1, id, 0, callback);
 	}
-}
-
-function register(idsAndItems) {
-	var tags = [];
-	var callbacks = [];
-
-	split(idsAndItems, tags, callbacks);
-
-	njsq._call(xdhq, 7, tags, callbacks);
-}
-
-function launch(callback, action) {
-	njsq._call(xdhq, 8, callback, "53752", action);
 }
 
 module.exports.componentInfo = () => njsq._componentInfo(xdhq);
 module.exports.wrapperInfo = () => njsq._wrapperInfo();
 module.exports.returnArgument = (text) => { return njsq._call(xdhq, 0, text) };
 
-module.exports.Tree = Tree;
-module.exports.register = register;
 module.exports.launch = launch;
 module.exports.XDH = XDH;
+module.exports.modes = modes;
+
+// Following functions are dev helper.
+module.exports.isDev = isDev;
+module.exports.getAssetDir = getAssetDir;
+module.exports.getAssetFileName = getAssetFileName;
+module.exports.readAsset = readAsset;
+module.exports.open = open;

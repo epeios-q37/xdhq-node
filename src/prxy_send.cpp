@@ -126,11 +126,40 @@ namespace {
 	{
 		property::get::S( Arguments.Id, Arguments.Name, Flow );
 	}
-	void Focus_(
+	void Focus__(
 		flw::sWFlow &Flow,
 		const rArguments &Arguments )
 	{
 		focus::S( Arguments.Id, Flow );
+	}
+
+	namespace {
+		template <typename items> void Send_(
+			const items &Items,
+			flw::sWFlow &Flow )
+		{
+			prtcl::Put( Items.Amount(), Flow );
+
+			sdr::sRow Row = Items.First();
+
+			if ( Row != qNIL ) {
+				while ( Row != qNIL ) {
+					prtcl::Put( Items( Row ), Flow );
+
+					Row = Items.Next( Row );
+				}
+			}
+		}
+	}
+
+	void New_(
+		flw::sWFlow &Flow,
+		const rNewArguments &Arguments )
+	{
+		prtcl::SendCommand( prtcl::cNew, Flow );
+		prtcl::Put( Arguments.Command, Flow );
+		Send_( Arguments.Strings, Flow );
+		Send_( Arguments.Arrays, Flow );
 	}
 }
 
@@ -142,7 +171,8 @@ namespace {
 void prxy_send::Send(
 	eRequest Request,
 	flw::sWFlow &Flow,
-	const rArguments &Arguments )
+	const rArguments &Arguments,
+	const rNewArguments &NewArguments )
 {
 	switch ( Request ) {
 	case r_Undefined:
@@ -165,7 +195,10 @@ void prxy_send::Send(
 	H( RemoveAttribute );
 	H( SetProperty );
 	H( GetProperty );
-	H( Focus );
+	H( Focus_ );
+	case rNew:
+		New_( Flow, NewArguments );
+		break;
 	default:
 		qRGnr();
 		break;

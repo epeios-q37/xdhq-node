@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 1999-2017 Claude SIMON (http://q37.info/contact/).
+	Copyright (C) 1999 Claude SIMON (http://q37.info/contact/).
 
 	This file is part of the Epeios framework.
 
@@ -123,6 +123,7 @@ namespace sclnjs {
 
 	};
 
+	typedef rBase_<int, n4njs::cInt32> rInt32;
 	typedef rBase_<str::dString, n4njs::cUString> rString;
 	typedef rBase_<str::dStrings, n4njs::cUStrings> rStrings;
 	typedef rBase_<n4njs::dCallbacks, n4njs::cUCallbacks> rCallbacks;
@@ -415,11 +416,21 @@ namespace sclnjs {
 	typedef scln4a::sRegistrar<fFunction> sRegistrar;
 
 	void SCLNJSInfo( txf::sWFlow &Flow );	// To define by user.
-	void SCLNJSRegister( sRegistrar &Registrar );	// To define by user
+	const scli::sInfo &SCLNJSRegister( sRegistrar &Registrar );	// To define by user
 }
 
 // Required by g++ and Clang, (but not by VC++).
 namespace scln4 {
+	template <> void Get(
+		int Index,
+		cCaller_ &Caller,
+		sclnjs::rInt32 &Int );
+
+	template <> void Get(
+		int Index,
+		cCaller_ &Caller,
+		int &Target );
+
 	template <> void Get(
 		int Index,
 		cCaller_ &Caller,

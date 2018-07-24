@@ -143,11 +143,31 @@ namespace {
 		property::get::R( Flow, Return.StringToSet() );
 	}
 
-	void Focus_(
+	void Focus__(
 		flw::sRFlow &Flow,
 		rReturn &Return )
 	{
 		focus::R( Flow );
+	}
+
+	void New_(
+		flw::sRFlow &Flow,
+		prxy_recv::eType Type,
+		rReturn &Return )
+	{
+		switch ( Type ) {
+		case tVoid:
+			break;
+		case tString:
+			prtcl::Get( Flow, Return.StringToSet() );
+			break;
+		case tStrings:
+			prtcl::Get( Flow, Return.StringsToSet() );
+			break;
+		default:
+			qRGnr();
+			break;
+		}
 	}
 
 }
@@ -159,6 +179,7 @@ namespace {
 
 void prxy_recv::Recv(
 	eRequest Request,
+	prxy_recv::eType ReturnTypeForNewHandling,
 	flw::sRFlow &Flow,
 	rReturn &Return )
 {
@@ -185,7 +206,10 @@ void prxy_recv::Recv(
 	H( SetAttribute );
 	H( GetProperty );
 	H( SetProperty );
-	H( Focus );
+	H( Focus_ );
+	case rNew:
+		New_( Flow, ReturnTypeForNewHandling, Return );
+		break;
 	default:
 		qRGnr();
 		break;

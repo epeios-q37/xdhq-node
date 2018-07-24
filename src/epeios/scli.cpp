@@ -17,9 +17,9 @@
 	along with the Epeios framework.  If not, see <http://www.gnu.org/licenses/>
 */
 
-#define THTSUB__COMPILATION
+#define SCLI_COMPILATION_
 
-#include "thtsub.h"
+#include "scli.h"
 
-using namespace thtsub;
+using namespace scli;
 

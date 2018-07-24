@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 1999-2017 Claude SIMON (http://q37.info/contact/).
+	Copyright (C) 1999 Claude SIMON (http://q37.info/contact/).
 
 	This file is part of the Epeios framework.
 
@@ -201,7 +201,7 @@ namespace csdbns {
 				qRFwk();
 
 			Data->IODriver->Init( Socket, true, fdr::ts_Default, sck::NoTimeout );
-			Data->UP = BaseCallback->PreProcess( Data->IODriver, ntvstr::string___( IP ).Internal() );	// The 'OwnerShipTaken' concerns the 'Flow'.
+			Data->UP = BaseCallback->PreProcess( ntvstr::string___( IP ).Internal() );	// The 'OwnerShipTaken' concerns the 'Flow'.
 		qRR
 			if ( Data != NULL )
 				delete Data;
@@ -345,5 +345,6 @@ namespace csdbns {
 	typedef server___ rServer;
 	typedef listener___ rListener;
 	typedef port__ sService;
+	qCDEF( sService, Undefined, 0 );
 }
 #endif

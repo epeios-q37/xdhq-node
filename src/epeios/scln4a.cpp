@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 1999-2017 Claude SIMON (http://q37.info/contact/).
+	Copyright (C) 1999 Claude SIMON (http://q37.info/contact/).
 
 	This file is part of the Epeios framework.
 
@@ -37,10 +37,14 @@ n4all::cLauncher *N4ALLRegister(
 {
 	n4all::cLauncher *Launcher = NULL;
 qRFH
+	const scli::sInfo *Info = NULL;
 qRFB
-	sclmisc::Initialize( *Data->SCLRack, *Data->Location );
+	Launcher = scln4a::SCLN4ARegister( *Registrar, Data->UP, Info );
 
-	Launcher = scln4a::SCLN4ARegister( *Registrar, Data->UP );
+	if ( Info == NULL )
+		qRFwk();
+
+	sclmisc::Initialize( *Data->SCLRack, *Data->Location, *Info );
 qRFR
 	if ( Launcher != NULL )
 		delete Launcher;

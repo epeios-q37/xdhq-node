@@ -31,6 +31,7 @@
 
 namespace proxy {
 	using prxy_send::rArguments;
+	using prxy_send::rNewArguments;
 	using prxy_recv::rReturn;
 
 	typedef tht::rReadWrite rControl_;
@@ -64,16 +65,17 @@ namespace proxy {
 	{
 	public:
 		rArguments Arguments;
+		rNewArguments NewArguments;
 		void reset( bso::sBool P = true )
 		{
 			rControl_::reset( P );
-			tol::reset( P, Arguments );
+			tol::reset( P, Arguments, NewArguments );
 		}
 		qCDTOR( rSent );
 		void Init( void )
 		{
 			rControl_::Init();
-			tol::Init( Arguments );
+			tol::Init( Arguments, NewArguments );
 		}
 	};
 
@@ -84,11 +86,14 @@ namespace proxy {
 		rRecv Recv;
 		rSent Sent;
 		prxy_cmn::eRequest Request;
+		prxy_recv::eType ReturnType;	// For the new handling.
 		str::wString Language;
+		bso::sBool Handshaked;
 		void reset( bso::sBool P = true )
 		{
-			tol::reset( P, Recv, Sent, Language );
+			tol::reset( P, Recv, Sent, Language, Handshaked );
 			Request = prxy_cmn::r_Undefined;
+			ReturnType = prxy_recv::t_Undefined;
 		}
 		qCDTOR( rData );
 		void Init( void )
@@ -97,6 +102,8 @@ namespace proxy {
 
 			tol::Init( Recv, Sent, Language );
 			Request = prxy_cmn::r_Undefined;
+			ReturnType = prxy_recv::t_Undefined;
+			Handshaked = false;
 		}
 		bso::sBool IsTherePendingRequest( void ) const
 		{
@@ -120,9 +127,7 @@ namespace proxy {
 		// Action to launch on a new session.
 		str::wString NewSessionAction_;
 	protected:
-		virtual void *CSDSCBPreProcess(
-			fdr::rRWDriver *IODriver,
-			const ntvstr::char__ *Origin ) override
+		virtual void *CSDSCBPreProcess( const ntvstr::char__ *Origin ) override
 		{
 			data *Data = NULL;
 		qRH;
@@ -132,14 +137,6 @@ namespace proxy {
 
 			if ( Data == NULL )
 				qRAlc();
-
-			Data->Recv.WriteDismiss();
-
-			Flow.Init( *IODriver );
-			Handshake_( Flow, Data->Language );
-
-			prtcl::PutAnswer( prtcl::aOK_1, Flow );
-			Flow.Commit();
 		qRR;
 			if ( Data != NULL )
 				delete Data;
@@ -160,36 +157,46 @@ namespace proxy {
 
 			Flow.Init( *IODriver );
 
-			if ( Data.Request != prxy_cmn::r_Undefined ) {
-				Data.Recv.WriteBegin();
-				Data.Recv.Return.Init();
-				prxy_recv::Recv( Data.Request, Flow, Data.Recv.Return );
-				Data.Request = prxy_cmn::r_Undefined;
-				Data.Recv.WriteEnd();
-				PRXYOnPending( &Data );
+			if ( !Data.Handshaked ) {
+				Data.Recv.WriteDismiss();
+
+				Handshake_( Flow, Data.Language );
+				Data.Handshaked = true;
+
+				prtcl::SendCommand( prtcl::cStandBy_1, Flow );
+				Flow.Commit();
 			} else {
-				Data.Recv.WriteBegin();
-				tol::Init( Data.Recv.Id, Data.Recv.Action );
-				GetAction_( Flow, Data.Recv.Id, Data.Recv.Action );
-				if ( Data.Recv.Action.Amount() == 0 ) {
-					if ( Data.Recv.Id.Amount() == 0 )
-						Data.Recv.Action = NewSessionAction_;
-					else
-						qRGnr();
+				if ( Data.Request != prxy_cmn::r_Undefined ) {
+					Data.Recv.WriteBegin();
+					Data.Recv.Return.Init();
+					prxy_recv::Recv( Data.Request, Data.ReturnType, Flow, Data.Recv.Return );
+					Data.Request = prxy_cmn::r_Undefined;
+					Data.Recv.WriteEnd();
+					PRXYOnPending( &Data );
+				} else {
+					Data.Recv.WriteBegin();
+					tol::Init( Data.Recv.Id, Data.Recv.Action );
+					GetAction_( Flow, Data.Recv.Id, Data.Recv.Action );
+					if ( Data.Recv.Action.Amount() == 0 ) {
+						if ( Data.Recv.Id.Amount() == 0 )
+							Data.Recv.Action = NewSessionAction_;
+						else
+							qRGnr();
+					}
+					Data.Recv.WriteEnd();
+					PRXYOnAction( &Data );
 				}
-				Data.Recv.WriteEnd();
-				PRXYOnAction( &Data );
+
+				Data.Sent.ReadBegin();
+
+				// 'Data.Request' is set by the 'PRXYOn...' method above.
+				if ( Data.Request != prxy_cmn::r_Undefined )
+					prxy_send::Send( Data.Request, Flow, Data.Sent.Arguments, Data.Sent.NewArguments );
+				else
+					prtcl::SendCommand( prtcl::cStandBy_1, Flow );
+
+				Data.Sent.ReadEnd();
 			}
-
-			Data.Sent.ReadBegin();
-
-			// 'Data.Request' is set by the 'PRXYOn...' method above.
-			if ( Data.Request != prxy_cmn::r_Undefined )
-				prxy_send::Send( Data.Request, Flow, Data.Sent.Arguments );
-			else
-				prtcl::PutAnswer( prtcl::aOK_1, Flow );
-
-			Data.Sent.ReadEnd();
 		qRR;
 		qRT;
 		qRE;

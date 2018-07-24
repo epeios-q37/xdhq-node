@@ -21,7 +21,6 @@
 
 #include "registry.h"
 #include "proxy.h"
-#include "treep.h"
 
 #include "csdbns.h"
 #include "csdcmn.h"
@@ -415,181 +414,52 @@ namespace {
 	}
 }
 
-#define ARGS_BEGIN( request )\
-	rData_ &Data = GetData_( Caller );\
-	Data.Sent.WriteBegin();\
-	Data.Request = prxy_cmn::r##request;\
-	proxy::rArguments &Arguments = Data.Sent.Arguments;\
+SCLNJS_F( xdhp::Launch )
+{
+qRH;
+	rData_ &Data = GetData_( Caller );
+	proxy::rNewArguments &Arguments = Data.Sent.NewArguments;
+	int Amount = 0;
+	int &RawType = Amount;
+	str::wString String;
+	str::wStrings Strings;
+qRB;
+	Data.Sent.WriteBegin();
+
+	Data.Request = prxy_cmn::rNew;
 	Arguments.Init();
 
-#define ARGS_END	Data.Sent.WriteEnd()
+	Caller.GetArgument( Arguments.Command );
 
-SCLNJS_F( xdhp::Execute )
-{
-	ARGS_BEGIN( Execute );
+	Caller.GetArgument( RawType );
 
-	Caller.GetArgument( Arguments.Script, Data.Callback );
+	if ( RawType >= prxy_recv::t_amount )
+		qRGnr();
 
-	ARGS_END;
-}
+	Data.ReturnType = (prxy_recv::eType)RawType;
 
-SCLNJS_F( xdhp::Alert )
-{
-	ARGS_BEGIN( Alert );
+	Caller.GetArgument( Amount );
 
-	Caller.GetArgument( Arguments.Message, Data.Callback );
+	while ( Amount-- ) {
+		String.Init();
+		Caller.GetArgument( String );
+		Arguments.Strings.Append( String );
+	}
 
-	ARGS_END;
-}
+	Caller.GetArgument( Amount );
 
-SCLNJS_F( xdhp::Confirm )
-{
-	ARGS_BEGIN( Confirm );
+	while ( Amount-- ) {
+		Strings.Init();
+		Caller.GetArgument( Strings );
+		Arguments.Arrays.Append( Strings );
+	}
 
-	Caller.GetArgument( Arguments.Message, Data.Callback );
+	Caller.GetArgument( Data.Callback );
 
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::SetLayout )
-{
-	ARGS_BEGIN( SetLayout );;
-
-	Caller.GetArgument( Arguments.Id );
-
-	treep::GetXML( Caller, Arguments.XML );
-
-	Caller.GetArgument( Arguments.XSLFilename, Data.Callback );
-	Arguments.Language = Data.Language;
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::GetContents )
-{
-	ARGS_BEGIN( GetContents );
-
-	Caller.GetArgument( Arguments.Ids, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::SetContents )
-{
-	ARGS_BEGIN( SetContents );
-
-	Caller.GetArgument( Arguments.Ids, Arguments.Contents, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::DressWidgets )
-{
-	ARGS_BEGIN( DressWidgets );
-
-	Caller.GetArgument( Arguments.Id, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::AddClasses )
-{
-	ARGS_BEGIN( AddClasses );
-
-	Caller.GetArgument( Arguments.Ids, Arguments.Classes, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::RemoveClasses )
-{
-	ARGS_BEGIN( RemoveClasses );
-
-	Caller.GetArgument( Arguments.Ids, Arguments.Classes, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::ToggleClasses )
-{
-	ARGS_BEGIN( ToggleClasses );
-
-	Caller.GetArgument( Arguments.Ids, Arguments.Classes, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::EnableElements )
-{
-	ARGS_BEGIN( EnableElements );
-
-	Caller.GetArgument( Arguments.Ids, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::DisableElements )
-{
-	ARGS_BEGIN( DisableElements );
-
-	Caller.GetArgument( Arguments.Ids, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::GetAttribute )
-{
-	ARGS_BEGIN( GetAttribute );
-
-	Caller.GetArgument( Arguments.Id, Arguments.Name, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::SetAttribute )
-{
-	ARGS_BEGIN( SetAttribute );
-
-	Caller.GetArgument( Arguments.Id, Arguments.Name, Arguments.Value, Data.Callback );
-	Data.Request = prxy_cmn::rSetAttribute;
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::RemoveAttribute )
-{
-	ARGS_BEGIN( RemoveAttribute );
-
-	Caller.GetArgument( Arguments.Id, Arguments.Name, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::GetProperty )
-{
-	ARGS_BEGIN( GetProperty );
-
-	Caller.GetArgument( Arguments.Id, Arguments.Name, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::SetProperty )
-{
-	ARGS_BEGIN( SetProperty );
-
-	Caller.GetArgument( Arguments.Id, Arguments.Name, Arguments.Value, Data.Callback );
-
-	ARGS_END;
-}
-
-SCLNJS_F( xdhp::Focus )
-{
-	ARGS_BEGIN( Focus );
-
-	Caller.GetArgument( Arguments.Id, Data.Callback );
-
-	ARGS_END;
+	Data.Sent.WriteEnd();
+qRR;
+qRT;
+qRE;
 }
 
 qGCTOR( xdhp )

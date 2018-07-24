@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 1999-2017 Claude SIMON (http://q37.info/contact/).
+	Copyright (C) 1999 Claude SIMON (http://q37.info/contact/).
 
 	This file is part of the Epeios framework.
 
@@ -135,7 +135,8 @@ namespace scln4a {
 
 	n4all::cLauncher *SCLN4ARegister(
 		n4all::cRegistrar &Registrar,
-		void *UP );	// To define by user.
+		void *UP,
+		const scli::sInfo *&Info );	// To define by user.
 
 	extern const char *SCLN4AProductVersion;	// To define by user.
 }

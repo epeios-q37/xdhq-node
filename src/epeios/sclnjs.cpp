@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 1999-2017 Claude SIMON (http://q37.info/contact/).
+	Copyright (C) 1999 Claude SIMON (http://q37.info/contact/).
 
 	This file is part of the Epeios framework.
 
@@ -58,6 +58,34 @@ namespace {
 	qRT
 	qRE
 	}
+}
+
+// For 'clang' and 'c++', the 'scln4' namespace definitions below
+// must be explicitly declared in sclnjs.h too !
+
+template <> void scln4::Get(
+	int Index,
+	cCaller_ &Caller,
+	rInt32 &Int )
+{
+	Get_<n4njs::cInt32>( Index, Caller, n4njs::tInt, Int );
+}
+
+template <> void scln4::Get(
+	int Index,
+	cCaller_ &Caller,
+	int &Target )
+{
+qRH;
+	rInt32 Int;
+qRB;
+	Int.Init();
+	Get( Index, Caller, Int );
+
+	Target = Int.Get();
+qRR;
+qRT;
+qRE;
 }
 
 template <> void scln4::Get(
@@ -186,6 +214,7 @@ namespace {
 	: public cLauncher_ {
 	protected:
 		virtual void N4ALLCall(
+			n4all::sEnv *,	// Not used.
 			void *Function,
 			n4all::cCaller &RawCaller ) override
 		{
@@ -217,7 +246,8 @@ namespace {
 
 n4all::cLauncher *scln4a::SCLN4ARegister(
 	n4all::cRegistrar &RegistrarCallback,
-	void *UP )
+	void *UP,
+	const scli::sInfo *&Info )
 {
 	n4all::cLauncher *Launcher = NULL;
 qRH
@@ -232,7 +262,7 @@ qRB
 
 	Registrar.Init( RegistrarCallback );
 
-	SCLNJSRegister( Registrar );
+	Info = &SCLNJSRegister( Registrar );
 
 	Launcher = new sLauncher_;
 
