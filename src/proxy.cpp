@@ -25,17 +25,69 @@
 
 using namespace proxy;
 
-void proxy::Handshake_(
+template <typename items> static void Send_(
+	const items &Items,
+	flw::sWFlow &Flow )
+{
+	//			prtcl::Put( Items.Amount(), Flow );
+
+	sdr::sRow Row = Items.First();
+
+	if ( Row != qNIL ) {
+		while ( Row != qNIL ) {
+			prtcl::Put( Items( Row ), Flow );
+
+			Row = Items.Next( Row );
+		}
+	}
+}
+
+void proxy::Send_(
+	flw::sWFlow &Flow,
+	const rArguments &Arguments )
+{
+qRH;
+	qCBUFFERr Buffer;
+qRB;
+	flw::PutString( Arguments.Command.Convert( Buffer ), Flow );
+	::Send_<str::dStrings>( Arguments.Strings, Flow );
+	::Send_<dXStrings_>( Arguments.XStrings, Flow );
+qRR;
+qRT;
+qRE;
+}
+
+void proxy::Recv_(
+	eType ReturnType,
 	flw::sRFlow &Flow,
+	rReturn &Return )
+{
+	switch ( ReturnType ) {
+	case tVoid:
+		break;
+	case tString:
+		prtcl::Get( Flow, Return.StringToSet() );
+		break;
+	case tStrings:
+		prtcl::Get( Flow, Return.StringsToSet() );
+		break;
+	default:
+		qRGnr();
+		break;
+	}
+}
+
+void proxy::Handshake_(
+	flw::sRWFlow &Flow,
 	str::dString & Language )
 {
-	csdcmn::sVersion Version = csdcmn::UndefinedVersion;
-
-	if ( (Version = csdcmn::GetProtocolVersion( prtcl::ProtocolId, Flow )) != prtcl::ProtocolVersion )
-		qRGnr();
-
 	prtcl::Get( Flow, Language );
+
 	Flow.Dismiss();
+
+	csdcmn::SendProtocol( prtcl::ProtocolId, prtcl::ProtocolVersion, Flow );
+
+	Flow.Commit();
 }
 
 void proxy::GetAction_(
@@ -43,9 +95,6 @@ void proxy::GetAction_(
 	str::dString &Id,
 	str::dString &Action )
 {
-	if ( prtcl::GetRequest( Flow ) != prtcl::rLaunch_1 )
-		qRGnr();
-
 	prtcl::Get( Flow, Id );
 	prtcl::Get( Flow, Action );
 	Flow.Dismiss();

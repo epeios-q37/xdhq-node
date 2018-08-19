@@ -203,13 +203,13 @@ namespace {
 			sclnjs::dArguments &Arguments )
 		{
 			switch ( Return.GetType() ) {
-			case prxy_recv::tString:
+			case proxy::tString:
 				Arguments.Add( Return.GetString() );
 				break;
-			case prxy_recv::tStrings:
+			case proxy::tStrings:
 				Arguments.Add( Return.GetStrings() );
 				break;
-			case prxy_recv::t_Undefined:
+			case proxy::t_Undefined:
 				break;
 			default:
 				qRGnr();
@@ -418,7 +418,7 @@ SCLNJS_F( xdhp::Launch )
 {
 qRH;
 	rData_ &Data = GetData_( Caller );
-	proxy::rNewArguments &Arguments = Data.Sent.NewArguments;
+	proxy::rArguments &Arguments = Data.Sent.Arguments;
 	int Amount = 0;
 	int &RawType = Amount;
 	str::wString String;
@@ -426,17 +426,16 @@ qRH;
 qRB;
 	Data.Sent.WriteBegin();
 
-	Data.Request = prxy_cmn::rNew;
 	Arguments.Init();
 
 	Caller.GetArgument( Arguments.Command );
 
 	Caller.GetArgument( RawType );
 
-	if ( RawType >= prxy_recv::t_amount )
+	if ( RawType >= proxy::t_amount )
 		qRGnr();
 
-	Data.ReturnType = (prxy_recv::eType)RawType;
+	Data.SetReturnType( (proxy::eType)RawType );
 
 	Caller.GetArgument( Amount );
 
@@ -451,7 +450,7 @@ qRB;
 	while ( Amount-- ) {
 		Strings.Init();
 		Caller.GetArgument( Strings );
-		Arguments.Arrays.Append( Strings );
+		Arguments.XStrings.Append( Strings );
 	}
 
 	Caller.GetArgument( Data.Callback );

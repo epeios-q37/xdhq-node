@@ -22,7 +22,7 @@
   <Import Project="Windows.targets"/>
   <Import Project="Details.props"/>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>871b23bd-0424-4992-8632-4644612428bd</ProjectGuid>
+    <ProjectGuid>2d59c55e-3952-485c-9c05-2d02d509e8ae</ProjectGuid>
     <RootNamespace>xdhqnjs</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props"/>
@@ -66,10 +66,6 @@
     <ClCompile Include="src/xdhp.cpp"/>
     <ClCompile Include="src/prtcl.cpp"/>
     <ClCompile Include="src/proxy.cpp"/>
-    <ClCompile Include="src/prxy_cmn.cpp"/>
-    <ClCompile Include="src/prxy_recv.cpp"/>
-    <ClCompile Include="src/prxy_send.cpp"/>
-    <ClCompile Include="src/tree.cpp"/>
     <ClCompile Include="src/epeios/ags.cpp"/>
     <ClCompile Include="src/epeios/aem.cpp"/>
     <ClCompile Include="src/epeios/bch.cpp"/>

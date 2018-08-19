@@ -19,16 +19,19 @@
 
 "use strict"
 
-// Types of the response.
+const address = "atlastk.org";const httpPort = "";
+//const address = "localhost";const httpPort = ":8080";
+
+const port = 53800;
+
 const shared = require('./XDHqSHRD.js');
+const net = require('net');
 
 const types = shared.types;
 const open = shared.open;
-const service = 53800;
-var host = "atlastk.org";
 
-if (process.env.EPEIOS_SRC)
-	host = "localhost";
+const protocolLabel = "712a58bf-2c9a-47b2-ba5e-d359a99966de";
+const protocolVersion = "0";
 
 function byteLength(str) {
 	// returns the byte length of an utf8 string
@@ -108,19 +111,12 @@ function addStrings(data, strings) {
 	return data;
 }
 
-function hasToLaunch(query) {
-	var i = 0;
-	var request = "";
+function handleToken(token) {
+	var data = new Buffer(0);
 
-	while (query[i] != 0)
-		request += String.fromCodePoint(query[i++]);
+	data = addString(data, token);
 
-	if (request == "Ready_1")
-		return false;
-	else if (request == "Launch_1")
-		return true;
-	else
-		throw "Unknown query: '" + request + "'";
+	return data;
 }
 
 function getQuery(socket) {
@@ -130,15 +126,17 @@ function getQuery(socket) {
 	while (buffer = socket.read())
 		query = Buffer.concat([query, buffer]);
 
+	console.log("Query: '" + query + "'");
+
 	return query;
 }
 
 function getId(query) {
-	return getString(query, 9)[0];
+	return getString(query, 0)[0];
 }
 
 function getAction(query) {
-	return getString(query, 9 + getSize(query, 9)[0] + 1)[0];
+	return getString(query, getSize(query, 0)[0] + 1)[0];
 }
 
 function getResponse(query, type) {
@@ -150,10 +148,10 @@ function getResponse(query, type) {
 			throw "The VOID type should be handled upstream !!!";
 			break;
 		case types.STRING:
-			return getString(query, 8)[0];
+			return getString(query, 0)[0];
 			break;
 		case types.STRINGS:
-			return getStrings(query, 8)[0];
+			return getStrings(query, 0)[0];
 			break;
 		default:
 			throw "Unknown response type !!!";
@@ -162,109 +160,110 @@ function getResponse(query, type) {
 }
 
 var token = "";
-var url = "";
+
+function standBy(socket) {
+	socket.write(Buffer.from("StandBy_1\x00"));
+}
 
 function pseudoServer(createCallback, newSessionAction, callbacks) {
 	var client = new net.Socket();
 
-	client.connect(service, host, () => {
-		var data = new Buffer(0);
+	client.connect(port, address, () => {
 		var relaunch = true;
 
-		data = addString(data, token);
-
-		client.write(data);
+		client.write(handleToken(token));
 
 		client.on('readable', () => {
 			if (client._xdhDOM === undefined) {
 				var query = getQuery(client);
 
-				token = getString(query, 0)[0];
+				if (token == "") {
+					token = getString(query, 0)[0];
 
-				if (token == "")
-					throw "Bad connection information !!!";
+					if (token == "")
+						throw "Bad connection information !!!";
 
-				client._xdhDOM = createCallback(client);
-				client._xdhDOM._xdhSocket = client;
-				client._xdhDOM._xdhIsDEMO = true;
-
-				client.write(Buffer.from("StandBy_1\x00"));
-
-				if (url != "") {
-					let completeURL = url + "?_token=" + token;
+					let completeURL = "http://" + address + httpPort + "/atlas.php?_token=" + token;
 
 					if (open(completeURL))
 						console.log("Open " + completeURL + " in a web browser, if not already done. Enjoy!");
 					else
 						console.log("Open " + completeURL + " in a web browser. Enjoy!");
-
-					url = "";
 				}
 
+				client._xdhDOM = createCallback(client);
+				client._xdhDOM._xdhSocket = client;
+				client._xdhDOM._xdhIsDEMO = true;
+				client._xdhDOM._xdhType = types.UNDEFINED;
+				client .write( addString(addString(Buffer.from(""),protocolLabel),protocolVersion));
 			} else if (relaunch) {
 				pseudoServer(createCallback, newSessionAction, callbacks);
 
-				while (data = client.read());
+				while (client.read());	// Language.
 
 				relaunch = false;
 			} else {
-
 				var query;
+
+				var cont = true;
 
 				query = getQuery(client);
 
-				if (hasToLaunch(query)) {
+				if (client._xdhDOM._xdhType === types.UNDEFINED) {
 					var id, action;
 
 					id = getId(query);
 					action = getAction(query);
 
-					if (action == "") {
+					if (action == "")
 						callbacks[newSessionAction](client._xdhDOM, "");
-						//            client.write(Buffer.from("StandBy_1\x00"));
-					} else {
+					else
 						callbacks[action](client._xdhDOM, id);
-					}
-				} else {
-					if (client._xdhDOM._xdhType === types.VOID) {
-						if (client._xdhDOM._xdhCallback != undefined) {
-							client._xdhDOM._xdhType = types.UNDEFINED;
-							client._xdhDOM._xdhCallback();
-							if (client._xdhDOM._xdhType === types.UNDEFINED)
-								client.write(Buffer.from("StandBy_1\x00"));
-						} else
-							client.write(Buffer.from("StandBy_1\x00"));
-					} else if (client._xdhDOM._xdhCallback != undefined) {
+
+					if (client._xdhDOM._xdhType === types.UNDEFINED) {
+						cont = false;
+						standBy(client);
+					}  else
+						cont = client._xdhDOM._xdhType === types.VOID;
+				}
+
+				while (cont) {
+					if (client._xdhDOM._xdhCallback != undefined) {
 						var type = client._xdhDOM._xdhType;
 						client._xdhDOM._xdhType = types.UNDEFINED;
-						client._xdhDOM._xdhCallback(getResponse(query, type));
-						if (client._xdhDOM._xdhType === types.UNDEFINED)
-							client.write(Buffer.from("StandBy_1\x00"));
+						if (type === types.VOID)
+							client._xdhDOM._xdhCallback();
+						else
+							client._xdhDOM._xdhCallback(getResponse(query, type));
+						if (client._xdhDOM._xdhType === types.UNDEFINED) {
+							cont = false;
+							standBy(client);
+						} else if (client._xdhDOM._xdhType !== types.VOID)
+							cont = false;
 					} else {
-						getResponse(query, client._xdhDOM._xdhType);
-						client.write(Buffer.from("StandBy_1\x00"));
+						if (client._xdhDOM._xdhType !== types.VOID)
+							getResponse(query, client._xdhDOM._xdhType);
+						client._xdhDOM._xdhType = types.UNDEFINED;
+						cont = false;
+						standBy(client);
 					}
 				}
 			}
 		});
 	});
 	client.on('error', (err) => {
-		throw err;
+		throw "Unable to connect to '" + address + ":" + port + "' !!!";
 	});
 }
 
-function launch(createCallback, newSessionAction, callbacks, webURL) {
+function launch(createCallback, newSessionAction, callbacks) {
 	if (process.env.EPEIOS_SRC) {
 		console.log("DEMO mode !");
 	}
 
-	url = webURL;
-
-	setTimeout(() => pseudoServer(createCallback, newSessionAction, callbacks), 2000);
+	setTimeout(() => pseudoServer(createCallback, newSessionAction, callbacks), 1000);
 
 }
-
-const net = require('net');
 
 function add(data, argument) {
 	if (typeof (argument) === "string")
@@ -293,6 +292,7 @@ function call(dom, command, type) {
 	dom._xdhCallback = arguments[i++];
 
 	dom._xdhSocket.write(data);
+	console.log("Command :" + command);
 }
 
 module.exports.launch = launch;

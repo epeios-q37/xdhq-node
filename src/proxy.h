@@ -22,17 +22,109 @@
 
 # include "prtcl.h"
 
-# include "prxy_send.h"
-# include "prxy_recv.h"
-
 # include "csdscb.h"
 # include "flw.h"
 # include "str.h"
 
 namespace proxy {
-	using prxy_send::rArguments;
-	using prxy_send::rNewArguments;
-	using prxy_recv::rReturn;
+	using prtcl::StandBy;
+
+	typedef crt::qCRATEdl( str::dStrings ) dXStrings_;
+	qW( XStrings_ );
+
+	struct rArguments
+	{
+	public:
+		str::wString Command;
+		str::wStrings Strings;
+		wXStrings_ XStrings;
+		void reset( bso::sBool P = true )
+		{
+			tol::reset( P, Command, Strings, XStrings );
+		}
+		qCDTOR( rArguments );
+		void Init( void )
+		{
+			tol::Init( Command, Strings, XStrings );
+		}
+	};
+
+	// Returns 'false' if type is 'void' (i.e. no data were read from 'Flow').
+	void Send_(
+		flw::sWFlow &Flow,
+		const rArguments &NewArguments );
+
+	qENUM( Type )
+	{
+		tVoid,
+			tString,
+			tStrings,
+			t_amount,
+			t_Undefined
+	};
+
+	class rReturn
+	{
+	private:
+		eType Type_;
+		str::wString String_;
+		str::wStrings Strings_;
+		void Test_( eType Type ) const
+		{
+			if ( Type_ != Type )
+				qRGnr();
+		}
+	public:
+		void reset( bso::sBool P = true )
+		{
+			tol::reset( P, String_, Strings_ );
+			Type_ = t_Undefined;
+		}
+		qCDTOR( rReturn );
+		void Init( void )
+		{
+			tol::Init( String_, Strings_ );
+			Type_ = t_Undefined;
+		}
+		str::dString &StringToSet( void )
+		{
+			Test_( t_Undefined );
+
+			Type_ = tString;
+
+			return String_;
+		}
+		str::dStrings &StringsToSet( void )
+		{
+			Test_( t_Undefined );
+
+			Type_ = tStrings;
+
+			return Strings_;
+		}
+		eType GetType( void ) const
+		{
+			return Type_;
+		}
+		const str::dString &GetString( void ) const
+		{
+			Test_( tString );
+
+			return String_;
+		}
+		const str::dStrings &GetStrings( void ) const
+		{
+			Test_( tStrings );
+
+			return Strings_;
+		}
+	};
+
+	void Recv_(
+		eType ReturnType,
+		flw::sRFlow &Flow,
+		rReturn &Return );
+
 
 	typedef tht::rReadWrite rControl_;
 
@@ -65,35 +157,33 @@ namespace proxy {
 	{
 	public:
 		rArguments Arguments;
-		rNewArguments NewArguments;
 		void reset( bso::sBool P = true )
 		{
 			rControl_::reset( P );
-			tol::reset( P, Arguments, NewArguments );
+			tol::reset( P, Arguments );
 		}
 		qCDTOR( rSent );
 		void Init( void )
 		{
 			rControl_::Init();
-			tol::Init( Arguments, NewArguments );
+			tol::Init( Arguments );
 		}
 	};
 
 
 	struct rData
 	{
+	private:
+		eType ReturnType_;
 	public:
 		rRecv Recv;
 		rSent Sent;
-		prxy_cmn::eRequest Request;
-		prxy_recv::eType ReturnType;	// For the new handling.
 		str::wString Language;
-		bso::sBool Handshaked;
+		bso::sBool PendingRequest;
 		void reset( bso::sBool P = true )
 		{
-			tol::reset( P, Recv, Sent, Language, Handshaked );
-			Request = prxy_cmn::r_Undefined;
-			ReturnType = prxy_recv::t_Undefined;
+			tol::reset( P, Recv, Sent, Language, PendingRequest );
+			ReturnType_ = t_Undefined;
 		}
 		qCDTOR( rData );
 		void Init( void )
@@ -101,18 +191,30 @@ namespace proxy {
 			reset();
 
 			tol::Init( Recv, Sent, Language );
-			Request = prxy_cmn::r_Undefined;
-			ReturnType = prxy_recv::t_Undefined;
-			Handshaked = false;
+			ReturnType_ = t_Undefined;
+			PendingRequest = false;
+		}
+		void SetReturnType( eType Type )
+		{
+			ReturnType_ = Type;
+			PendingRequest = true;
+		}
+		eType GetReturnType( void ) const
+		{
+			if ( ReturnType_ == t_Undefined )
+				qRGnr();
+
+			return ReturnType_;
+
 		}
 		bso::sBool IsTherePendingRequest( void ) const
 		{
-			return Request != prxy_cmn::r_Undefined;
+			return PendingRequest;
 		}
 	};
 
 	void Handshake_(
-		flw::sRFlow &Flow,
+		flw::sRWFlow &Flow,
 		str::dString &Language );
 
 	void GetAction_(
@@ -127,7 +229,9 @@ namespace proxy {
 		// Action to launch on a new session.
 		str::wString NewSessionAction_;
 	protected:
-		virtual void *CSDSCBPreProcess( const ntvstr::char__ *Origin ) override
+		virtual void *CSDSCBPreProcess(
+			fdr::rRWDriver *RWDriver,
+			const ntvstr::char__ *Origin ) override
 		{
 			data *Data = NULL;
 		qRH;
@@ -137,6 +241,12 @@ namespace proxy {
 
 			if ( Data == NULL )
 				qRAlc();
+
+			Flow.Init( *RWDriver );
+
+			Data->Recv.WriteDismiss();
+
+			Handshake_( Flow, Data->Language );
 		qRR;
 			if ( Data != NULL )
 				delete Data;
@@ -145,32 +255,25 @@ namespace proxy {
 			return Data;
 		}
 		virtual csdscb::eAction CSDSCBProcess(
-			fdr::rRWDriver *IODriver,
+			fdr::rRWDriver *RWDriver,
 			void *UP ) override
 		{
 		qRH;
 			flw::sDressedRWFlow<> Flow;
 			data &Data = *(data *)UP;
+			bso::sBool Cont = true;
 		qRB;
 			if ( UP == NULL )
 				qRGnr();
 
-			Flow.Init( *IODriver );
+			Flow.Init( *RWDriver );
 
-			if ( !Data.Handshaked ) {
-				Data.Recv.WriteDismiss();
-
-				Handshake_( Flow, Data.Language );
-				Data.Handshaked = true;
-
-				prtcl::SendCommand( prtcl::cStandBy_1, Flow );
-				Flow.Commit();
-			} else {
-				if ( Data.Request != prxy_cmn::r_Undefined ) {
+			while ( Cont ) {
+				if ( Data.IsTherePendingRequest() ) {
 					Data.Recv.WriteBegin();
 					Data.Recv.Return.Init();
-					prxy_recv::Recv( Data.Request, Data.ReturnType, Flow, Data.Recv.Return );
-					Data.Request = prxy_cmn::r_Undefined;
+					Recv_( Data.GetReturnType(), Flow, Data.Recv.Return );
+					Data.PendingRequest = false;
 					Data.Recv.WriteEnd();
 					PRXYOnPending( &Data );
 				} else {
@@ -190,10 +293,13 @@ namespace proxy {
 				Data.Sent.ReadBegin();
 
 				// 'Data.Request' is set by the 'PRXYOn...' method above.
-				if ( Data.Request != prxy_cmn::r_Undefined )
-					prxy_send::Send( Data.Request, Flow, Data.Sent.Arguments, Data.Sent.NewArguments );
-				else
-					prtcl::SendCommand( prtcl::cStandBy_1, Flow );
+				if ( Data.IsTherePendingRequest() ) {
+					Send_( Flow, Data.Sent.Arguments );
+					Cont = Data.GetReturnType() == tVoid;
+				} else {
+					flw::PutString( StandBy, Flow );
+					Cont = false;
+				}
 
 				Data.Sent.ReadEnd();
 			}

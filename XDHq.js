@@ -103,7 +103,7 @@ function merge(key, value) {
 var xdhq;
 var call;
 
-function launch(callback, action, tagsAndCallbacks, mode, url) {
+function launch(callback, action, tagsAndCallbacks, mode) {
 	switch (mode) {
 		case modes.DEMO:
 			xdhq = require('./XDHqDEMO.js');
@@ -117,7 +117,7 @@ function launch(callback, action, tagsAndCallbacks, mode, url) {
 	}
 
 	call = xdhq.call;
-	xdhq.launch(callback, action, tagsAndCallbacks, url);
+	xdhq.launch(callback, action, tagsAndCallbacks);
 }
 
 class XDH {
@@ -139,15 +139,13 @@ class XDH {
 	setLayout(id, html, callback) {
 		this.setLayout_(id, html, "", callback);
 	}
-	setLayoutXSL(id, tree, xslFileName, callback) {
-		let xslURL;
+	setLayoutXSL(id, xml, xslFilename, callback) {
+		let xslURL = xslFilename;
 
 		if (this._xdhIsDEMO)
-			xslURL = "data:text/xml;charset=utf-8," + encodeURIComponent(readAsset(xslFileName));
-		else
-			xslURL = xslFileName;
+			xslURL = "data:text/xml;charset=utf-8," + encodeURIComponent(readAsset(xslFilename));
 
-		this.setLayout_(id, tree.end(), xslURL, callback);
+		this.setLayout_(id, xml, xslURL, callback);
 	}
 	getContents(ids, callback) {
 		call(this, "GetContents_1", types.STRINGS, 0, 1, ids,
