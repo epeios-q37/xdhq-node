@@ -1,20 +1,20 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
-<Configurations xmlns:xpp="http://q37.info/ns/xpp">
- <Configuration target="xdhqnjs">
-  <Parameters>
-   <Command>Process</Command>
-   <Language>en</Language>
-  </Parameters>
-  <Definitions/>
-  <Locale/>
-  <Arguments>
-   <Argument id="ProcessCommand" Description="ProcessCommandDescription" long="process" Value="Process" Usage="%ServiceArgument%"/>
-   <Argument id="ServiceArgument" Description="ServiceArgumentDescription" Path="Service" Label="ServiceArgumentLabel"/>
-   <Layouts>
-    <Layout command="Process">
-     <Link index="0" Target="ServiceArgument"/>
-    </Layout>
-   </Layouts>
-  </Arguments>
- </Configuration>
-</Configurations>
+ <Configurations xmlns:xpp="http://q37.info/ns/xpp">
+  <Configuration target="xdhqnjs">
+   <Parameters>
+    <Command>Process</Command>
+    <Language>en</Language>
+   </Parameters>
+   <Definitions/>
+   <Locale/>
+   <Arguments>
+    <Argument id="ProcessCommand" Description="ProcessCommandDescription" long="process" Value="Process" Usage="%ServiceArgument%"/>
+    <Argument id="ServiceArgument" Description="ServiceArgumentDescription" Path="Service" Label="ServiceArgumentLabel"/>
+    <Layouts>
+     <Layout command="Process">
+      <Link index="0" Target="ServiceArgument"/>
+     </Layout>
+    </Layouts>
+   </Arguments>
+  </Configuration>
+ </Configurations>

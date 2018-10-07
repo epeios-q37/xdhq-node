@@ -19,8 +19,27 @@
 
 "use strict"
 
-const address = "atlastk.org";const httpPort = "";
-//const address = "localhost";const httpPort = ":8080";
+var address = "atlastk.org";
+var httpPort = "";
+var cgi = "xdh";
+
+
+if ( process.env.ATK ) {
+	switch (process.env.ATK) {
+		case 'DEV':
+			address = "localhost";
+			httpPort = ":8080";
+			console.log( "\tDEV mode !")
+			break;
+		case 'TEST':
+			cgi = "xdh_";
+			console.log("\tTEST mode !")
+			break;
+		default:
+			throw "Bad 'ATK' environment variable value : should be 'DEV' or 'TEST' !";
+			break;
+	}
+}
 
 const port = 53800;
 
@@ -111,10 +130,10 @@ function addStrings(data, strings) {
 	return data;
 }
 
-function handleToken(token) {
+function handleString(string) {
 	var data = new Buffer(0);
 
-	data = addString(data, token);
+	data = addString(data, string);
 
 	return data;
 }
@@ -159,34 +178,49 @@ function getResponse(query, type) {
 
 var token = "";
 
+if (process.env.ATK_TOKEN)
+	token = "_" + process.env.ATK_TOKEN;
+
 function standBy(socket) {
 	socket.write(Buffer.from("StandBy_1\x00"));
 }
 
-function pseudoServer(createCallback, newSessionAction, callbacks) {
+function isTokenEmpty() {
+	return ( token == "" ) || ( token.charAt( 0 ) == '_' );
+}
+
+function pseudoServer(createCallback, newSessionAction, callbacks, head) {
 	var client = new net.Socket();
 
 	client.connect(port, address, () => {
 		var relaunch = true;
 
-		client.write(handleToken(token));
+		client.write(handleString(token));
+
+		if ( isTokenEmpty() ) {
+			if (head === undefined)
+				head = "";
+			client.write(handleString(head));
+		}
 
 		client.on('readable', () => {
 			if (client._xdhDOM === undefined) {
-				var query = getQuery(client);
+				let query = getQuery(client);
 
-				if (token == "") {
+				if ( isTokenEmpty() ) {
 					token = getString(query, 0)[0];
 
-					if (token == "")
+					if ( isTokenEmpty() )
 						throw "Bad connection information !!!";
 
-					let completeURL = "http://" + address + httpPort + "/atlas.php?_token=" + token;
+					let completeURL = "http://" + address + httpPort + "/" + cgi + ".php?_token=" + token;
+
+					console.log(completeURL);
 
 					if (open(completeURL))
-						console.log("Open " + completeURL + " in a web browser, if not already done. Enjoy!");
+						console.log("Open above URL in a web browser, if not already done. Enjoy!");
 					else
-						console.log("Open " + completeURL + " in a web browser. Enjoy!");
+						console.log("Open above URL in a web browser. Enjoy!");
 				}
 
 				client._xdhDOM = createCallback(client);
@@ -195,7 +229,7 @@ function pseudoServer(createCallback, newSessionAction, callbacks) {
 				client._xdhDOM._xdhType = types.UNDEFINED;
 				client .write( addString(addString(Buffer.from(""),protocolLabel),protocolVersion));
 			} else if (relaunch) {
-				pseudoServer(createCallback, newSessionAction, callbacks);
+				pseudoServer(createCallback, newSessionAction, callbacks);	// Useless to give 'head', as it will no more be used.
 
 				while (client.read());	// Language.
 
@@ -251,15 +285,15 @@ function pseudoServer(createCallback, newSessionAction, callbacks) {
 	});
 	client.on('error', (err) => {
 		throw "Unable to connect to '" + address + ":" + port + "' !!!";
-	});
+	}); 
 }
 
-function launch(createCallback, newSessionAction, callbacks) {
+function launch(createCallback, newSessionAction, callbacks, head) {
 	if (process.env.EPEIOS_SRC) {
 		console.log("DEMO mode !");
 	}
 
-	setTimeout(() => pseudoServer(createCallback, newSessionAction, callbacks), 1000);
+	setTimeout(() => pseudoServer(createCallback, newSessionAction, callbacks, head), 1000);
 
 }
 
