@@ -65,6 +65,19 @@ function readAsset(fileName) {
 	return Buffer.from(fs.readFileSync(getAssetFileName(fileName))).toString();
 }
 
+/*
+To allow the use of embedded XSL, if the first character begins with '<'
+(as an XML declaration), the parameter is considered containing XSL,
+otherwise the file name containing the XSL.
+*/
+
+function readXSLAsset(xslContentOrFilename) {
+	if (xslContentOrFilename[0] === '<')
+		return xslContentOrFilename;
+	else
+		return readAsset(xslContentOrFilename);
+}
+
 const modes = {
 	DEMO: 0,
 	PROD: 1,
@@ -140,7 +153,7 @@ class XDH {
 		let xslURL = xslFilename;
 
 		if (this._xdhIsDEMO)
-			xslURL = "data:text/xml;charset=utf-8," + encodeURIComponent(readAsset(xslFilename));
+			xslURL = "data:text/xml;charset=utf-8," + encodeURIComponent(readXSLAsset(xslFilename));
 
 		this.setLayout_(id, xml, xslURL, callback);
 	}
@@ -162,6 +175,22 @@ class XDH {
 	}
 	setContent(id, content, callback) {
 		return this.setContents(merge(id, content), callback);
+	}
+	setTimeout( delay, action, callback )
+	{
+		call(this, "SetTimeout_1", types.VOID, 2, delay.toString(), action, 0, callback);
+	}
+	createElement_(name, id, callback ) {
+		call( this, "CreateElement_1", types.STRING, 2, name, id, 0, callback )
+	}
+	createElement(name, idOrCallback, callback ) {
+		if (typeof (idOrCallback) === "string")
+			return this.createElement_(name, idOrCallback, callback);
+		else
+			return this.createElement_(name, "", idOrCallback);
+	}
+	insertChild(child, id, callback) {
+		call(this, "InsertChild_1", types.VOID, 2, child, id, 0, callback);
 	}
 	dressWidgets(id, callback) {
 		call(this, "DressWidgets_1", types.VOID, 1, id, 0, callback);
