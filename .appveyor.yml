@@ -1,7 +1,7 @@
 # node.appveyor
 
 environment:
-  version: 20181108
+  version: 20181117
   affix: xdhq
   matrix:
     - nodejs_version: "4"
