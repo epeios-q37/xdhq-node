@@ -1,4 +1,9 @@
-# *CHANGELOG* for the *XDHTML* wrappers (*all languages*).
+# *CHANGELOG* for the *XDHTML* wrappers (*all bindings*).
+
+## 2018-11-20
+
+- sending some information for logging purpose,
+- switching to protocol version 1,
 
 ## 2018-07-12
 - *xdhqnjs*:
