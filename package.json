@@ -1,6 +1,6 @@
 {
   "name": "xdhq",
-  "version": "2019.3.5",
+  "version": "2019.3.26",
   "author": "Claude SIMON (http://q37.info/contact/)",
   "description": "'XDHTML' wrapper.",
   "main": "XDHq.js",
@@ -15,7 +15,7 @@
     "q37",
     "epeios"
   ],
-  "license": "AGPL-3.0",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/epeios-q37/xdhq-node/issues"
   },
